@@ -1,7 +1,7 @@
 #
-# $Rev:: 202                                                          $:  
+# $Rev:: 209                                                          $:  
 # $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2015-05-20 10:17:02 -0700 (Wed, 20 May 2015)     $:
+# $LastChangedDate:: 2015-08-03 11:24:06 -0700 (Mon, 03 Aug 2015)     $:
 #
 import time
 import os
@@ -137,7 +137,7 @@ class donutfit(object):
             self.inputHeader = hdulist[0].header
 
             # get the extension name from the header
-            if self.inputHeader.has_key("EXTNAME"):
+            if self.inputHeader.keys().count("EXTNAME")>0:
                 extname = self.inputHeader["EXTNAME"]
                 if extname == "":
                     extname = 'None'
@@ -145,12 +145,12 @@ class donutfit(object):
                 extname = 'None'
 
             # also get the IX,IY values from the header
-            if self.inputHeader.has_key("IX"):
+            if self.inputHeader.keys().count("IX")>0:
                 ix = self.inputHeader["IX"]
             else:
                 ix = 0.
                 
-            if self.inputHeader.has_key("IY"):
+            if self.inputHeader.keys().count("IY")>0:
                 iy = self.inputHeader["IY"]
             else:
                 iy = 0.
@@ -237,10 +237,11 @@ class donutfit(object):
             self.hiParam[self.gFitFunc.ipar_bkgd] = background*10.0
 
         # rzero parameter, get from argument first then header or otherwise set to 0.2
-        # March 25,2014 increase limit on rzero from 0.25 to 0.30
+            # March 25,2014 increase limit on rzero from 0.25 to 0.30
+            # temporary - increase rzero limit to 0.50
         inputrzero = self.fitDict["inputrzero"]
         if inputrzero == None:
-            if self.inputHeader.has_key("RZEROIN"):
+            if self.inputHeader.keys().count("RZEROIN")>0:
                 inputrzero = self.inputHeader["RZEROIN"]
             else:
                 inputrzero = 0.125
@@ -248,7 +249,7 @@ class donutfit(object):
         self.startingParam[self.gFitFunc.ipar_rzero] = inputrzero
         self.errorParam[self.gFitFunc.ipar_rzero] = 0.01
         self.loParam[self.gFitFunc.ipar_rzero] = 0.05
-        self.hiParam[self.gFitFunc.ipar_rzero] = 0.35
+        self.hiParam[self.gFitFunc.ipar_rzero] = 0.50
 
         # Set starting values and step sizes for parameters
         # (note that one can redefine the parameters, so this method can be called multiple times)
@@ -408,7 +409,7 @@ class donutfit(object):
             outputHeaderDict = {}
 
         for key in self.inputHeader.keys():
-            if not stdHeaderDict.has_key(key):
+            if not stdHeaderDict.keys().count(key)>0:
                 outputHeaderDict[key] = self.inputHeader[key]
 
         # fill output Dictionary

@@ -1,7 +1,7 @@
 //
-// $Rev:: 202                                                       $:  
+// $Rev:: 219                                                       $:  
 // $Author:: roodman                                                $:  
-// $LastChangedDate:: 2015-05-20 10:17:02 -0700 (Wed, 20 May 2015)  $:  
+// $LastChangedDate:: 2015-09-02 16:15:02 -0700 (Wed, 02 Sep 2015)  $:  
 //
 //
 // DonutEngine.h:  Engine to calculate focal plane image from 
@@ -34,20 +34,20 @@ public:
   // constructors
   DonutEngine(MapStoS inputMapS, MapStoI inputMapI, MapStoD inputMapD);
 
-  DonutEngine(int iTelescope=0, 
-	      double waveLength=700.0e-9, 
-	      int nZernikeTerms=11, 
-	      int nbin=256, 
-	      int nPixels=64, 
-	      const char* outputPrefix="test",
-	      bool debugFlag=false,
-	      int printLevel=0,
-	      bool gridCalcMode=true,
-	      int pixelOverSample=4,
-	      double scaleFactor=2.0,
-	      const char* inputPupilMask="",
-	      int zemaxToDECamSignFlip=-1,
-	      bool calcRzeroDerivative=false);
+  // DonutEngine(int iTelescope=0,  
+  // 	      double waveLength=700.0e-9,  
+  // 	      int nZernikeTerms=11,  
+  // 	      int nbin=256,  
+  // 	      int nPixels=64,  
+  // 	      const char* outputPrefix="test", 
+  // 	      bool debugFlag=false, 
+  // 	      int printLevel=0, 
+  // 	      bool gridCalcMode=true, 
+  // 	      int pixelOverSample=4, 
+  // 	      double scaleFactor=2.0, 
+  // 	      const char* inputPupilMask="", 
+  // 	      int zemaxToDECamSignFlip=-1, 
+  // 	      bool calcRzeroDerivative=false); 
 
   ~DonutEngine();
 
@@ -174,6 +174,11 @@ protected:
   Real _M_PI;
   Real _M_PI_4;
 
+  // input maps
+  MapStoS _inputMapS;
+  MapStoI _inputMapI;
+  MapStoD _inputMapD;
+  
   // input parameters  
   int _iTelescope;
   Real _waveLength;

@@ -1,13 +1,14 @@
 #!/usr/bin/env python
-# $Rev:: 203                                                          $:  
+# $Rev:: 212                                                          $:  
 # $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2015-05-20 10:20:01 -0700 (Wed, 20 May 2015)     $: 
+# $LastChangedDate:: 2015-08-17 12:07:18 -0700 (Mon, 17 Aug 2015)     $: 
 #
 # Make one calculated image, either from Zemax Zernike array
 # or from Zemax WFM file.  
 #
 import numpy
 import scipy
+#import pyfits
 from astropy.io import fits as pyfits
 from array import array
 import argparse
@@ -15,54 +16,50 @@ import pdb
 import sys
 import string
 from donutlib.donututil import getZemaxWfm,getFitsWfm
-from sandbox.donutengine import donutengine
+#from donutengine import donutengine
+from donutlib.donutengine import donutengine
 from donutlib.decamutil import decaminfo
 
+
 class makeDonut(object):
-    """
-    makeDonut is a class used make artificial donuts or stars
-        
-    Aaron Roodman - SLAC National Accelerator Laboratory
+    """ make Donuts 
     """
 
-
-    def updateParam(**inputDict):
-        """ set parameters
-        """
-        paramDict = {"inputFile":"",
-                 "wfmFile":"",
-                 "writeToFits":False,
-                 "outputPrefix":"testone",
-                 "xDECam":0.0,
-                 "yDECam":0.0,
-                 "debugFlag":False,
-                 "rootFlag":False,
-                 "iTelescope":0,
-                 "waveLength":700.0e-9,
-                 "nZernikeTerms":37,
-                 "nbin":512,
-                 "nPixels":64,
-                 "gridCalcMode":True,
-                 "pixelOverSample":8,
-                 "scaleFactor":1.,                 
-                 "rzero":0.125,
-                 "nEle":1.0e6,
-                 "background":4000.,
-                 "randomFlag":False,
-                 "gain":1.0,
-                 "flipFlag":False,
-                 "ZernikeArray":[]}
-
-        paramDict.update(inputDict)
-        return paramDict
-    
     def __init__(self,**inputDict):
-        """ initialize and build donut maker
+        """ initialize
         """
-        paramDict = updateParam(**inputDict)
+
+        # initialize the parameter Dictionary, and update defaults from inputDict
+        self.paramDict = {"inputFile":"",
+                          "wfmFile":"",
+                          "wfmArray":None,
+                          "writeToFits":False,
+                          "outputPrefix":"testone",
+                          "xDECam":0.0,
+                          "yDECam":0.0,
+                          "debugFlag":False,
+                          "rootFlag":False,
+                          "iTelescope":0,
+                          "waveLength":700.0e-9,
+                          "nZernikeTerms":37,
+                          "nbin":512,
+                          "nPixels":64,
+                          "gridCalcMode":True,
+                          "pixelOverSample":8,
+                          "scaleFactor":1.,                 
+                          "rzero":0.125,
+                          "nEle":1.0e6,
+                          "background":4000.,
+                          "randomFlag":False,
+                          "randomSeed":2304809823,
+                          "gain":1.0,
+                          "flipFlag":False,
+                          "ZernikeArray":[]}
+
+        self.paramDict.update(inputDict)
 
         # check parameters are ok
-        if paramDict["nbin"] != paramDict["nPixels"]*paramDict["pixelOverSample"]:
+        if self.paramDict["nbin"] != self.paramDict["nPixels"]*self.paramDict["pixelOverSample"]:
             print "makeDonut:  nbin must = nPixels * pixelOverSample !!!"
             sys.exit(1)
 
@@ -72,65 +69,71 @@ class makeDonut(object):
         # it must be included.  It is also possible that Z4 is too big for the nPixels - buts that another limit than this one
         F = 2.9  # hardcode for DECam for now
         pixelSize = 15.e-6 
-        if paramDict["pixelOverSample"] * paramDict["scaleFactor"] * (paramDict["waveLength"] * F / pixelSize) < 1. :
+        if self.paramDict["pixelOverSample"] * self.paramDict["scaleFactor"] * (self.paramDict["waveLength"] * F / pixelSize) < 1. :
             print "makeDonut:  ERROR pupil doesn't fit!!!"
-            print "            value = ",paramDict["pixelOverSample"] * paramDict["scaleFactor"] * (paramDict["waveLength"] * F / pixelSize)
-            sys.exit(2)
+            print "            value = ",self.paramDict["pixelOverSample"] * self.paramDict["scaleFactor"] * (self.paramDict["waveLength"] * F / pixelSize)
+            #sys.exit(2)
 
         # for WFM, need to turn gridCalcMode to False for donutengine
-        #if paramDict["useWFM"]:
-        #    paramDict["gridCalcMode"] = False
-        #
-        # don't do this by default, may need it if Zemax is used, but not if correct bins sizes are used.
-        # and it isn't coded with c++ donutengine yet either...
-
+        #if self.paramDict["useWFM"]:
+        #    self.paramDict["gridCalcMode"] = False
+            #
+            # don't do this by default, may need it if Zemax is used, but not if correct bins sizes are used.
+            # and it isn't coded with c++ donutengine yet either...
+            
         # declare fit function
-        self.gFitFunc = donutengine(**paramDict)
+        self.gFitFunc = donutengine(**self.paramDict)
+
+        # DECam info
+        self.dinfo = decaminfo()
+
+        # set random seed
+        numpy.random.seed(self.paramDict["randomSeed"])
 
 
-    def generate(**inputDict):
-        """ generate a donut or star
-        """
-        paramDict = updateParam(**inputDict)
-        
+    def setXY(self,X,Y):
         # call setXYDECam(x,y) to get an off-axis pupil function!!!
-        self.gFitFunc.setXYDECam(paramDict["xDECam"],paramDict["yDECam"])
+        self.gFitFunc.setXYDECam(X,Y)
 
         # convert this position to extname,ix,iy
         # Note: x=0,y=0 is in between sensors.  IF this is used, then just set these by hand
-        if paramDict["iTelescope"]==0:
-            dinfo = decaminfo()
-            if paramDict["xDECam"]==0.0 and paramDict["yDECam"]==0.0:
-                extname = "N4"
-                ix = -1024
-                iy = 2048
-            else:        
-                extname = dinfo.getSensor(paramDict["xDECam"],paramDict["yDECam"])
-                x,y = dinfo.getPixel(extname,paramDict["xDECam"],paramDict["yDECam"])
-                ix = int(x+0.5)
-                iy = int(y+0.5)
-        else:
-            extname = "Other"
-            ix = 0
-            iy = 0
+        if X==0.0 and Y==0.0:
+            self.extname = "N4"
+            self.ix = -1024
+            self.iy = 2048
+        else:        
+            self.extname = dinfo.getSensor(X,Y)
+            x,y = dinfo.getPixel(self.extname,X,Y)
+            self.ix = int(x+0.5)
+            self.iy = int(y+0.5)
+
+    def make(self,**inputDict):
+        """ make the Donut
+        """
+
+        # update the parameters
+        self.paramDict.update(inputDict)
+
+        # update the focal plane position
+        self.setXY(self.paramDict["xDECam"],self.paramDict["yDECam"])
 
         # parameters for Donuts
         par = numpy.zeros(self.gFitFunc.npar)
-        par[self.gFitFunc.ipar_rzero] = paramDict["rzero"]
-        par[self.gFitFunc.ipar_nEle] = paramDict["nEle"]
-        par[self.gFitFunc.ipar_bkgd] = paramDict["background"]
+        par[self.gFitFunc.ipar_rzero] = self.paramDict["rzero"]
+        par[self.gFitFunc.ipar_nEle] = self.paramDict["nEle"]
+        par[self.gFitFunc.ipar_bkgd] = self.paramDict["background"]
 
         # get command line input for Zernikes (if any)
-        inputZernikeArray  = numpy.array(paramDict["ZernikeArray"])
+        inputZernikeArray  = numpy.array(self.paramDict["ZernikeArray"])
         someInputZernike = inputZernikeArray.any()
 
         # WFM or Zernikes
-        if paramDict["wfmFile"]=="" or someInputZernike :
+        if self.paramDict["wfmFile"]=="" or someInputZernike :
 
             # test for a Zernike input file or input from cmd line, or both
-            if paramDict["inputFile"] != ""  :
+            if self.paramDict["inputFile"] != ""  :
 
-                aDir,aFile = os.path.split(paramDict["inputFile"])
+                aDir,aFile = os.path.split(self.paramDict["inputFile"])
                 if not sys.path.__contains__(aDir):
                     sys.path.append(aDir)
 
@@ -154,25 +157,30 @@ class makeDonut(object):
             # now make the Donut
             self.gFitFunc.calcAll(par)
 
-        elif paramDict["wfmFile"]!=""  :
+        elif self.paramDict["wfmFile"]!=""  :
 
             # get WFM array from the file
-            if string.find(paramDict["wfmFile"],".txt") >= 0:
-                xaxis,yaxis,wfm = getZemaxWfm(paramDict["wfmFile"])
-            elif string.find(paramDict["wfmFile"],".fits") >= 0:
-                wfm = getFitsWfm(paramDict["wfmFile"],0)
+            if string.find(self.paramDict["wfmFile"],".txt")>=0:
+                xaxis,yaxis,wfm = getZemaxWfm(self.paramDict["wfmFile"])
+            elif string.find(self.paramDict["wfmFile"],".fits")>=0:
+                wfm = getFitsWfm(self.paramDict["wfmFile"],0)
                 # now make the donut
                 self.gFitFunc.fillPar(par)
                 self.gFitFunc.calcWFMtoImage(wfm)
 
+        elif self.paramDict["wfmArray"] != None:
+            self.gFitFunc.fillPar(par)
+            self.gFitFunc.calcWFMtoImage(self.paramDict["wfmArray"])
+
         # did we get this far?
         #print "makeDonut: calcAll is finished!"
 
-
         # randomize
         theImage = self.gFitFunc.getvImage().copy()
-        if paramDict["randomFlag"]:
-            numpy.random.seed(paramDict["randomSeed"])
+
+        #print "makeDonut: got the vImage"
+
+        if self.paramDict["randomFlag"]:
             postageshape = theImage.shape
             nranval = numpy.random.normal(0.0,1.0,postageshape)
             imarr = theImage + nranval*numpy.sqrt(theImage)
@@ -180,13 +188,16 @@ class makeDonut(object):
             imarr = theImage
 
         # apply gain
-        imarr = imarr / paramDict["gain"]
+        imarr = imarr / self.paramDict["gain"]
 
         # make sure that imarr has dtype = float32
-        imarr = numpy.float32(imarr)
+        if self.paramDict["writeToFits"]:
+            imarr = numpy.float32(imarr)
+        else:
+            imarr = numpy.float64(imarr)
 
         # if desired flip array in X
-        if paramDict["flipFlag"]:
+        if self.paramDict["flipFlag"]:
             imarr = numpy.fliplr(imarr)
 
         # get Zernike code
@@ -197,39 +208,38 @@ class makeDonut(object):
         #print "makeDonut: ready to make output file"
 
         # calculated Donut
-        if paramDict["writeToFits"]:
+        if self.paramDict["writeToFits"]:
             hdu = pyfits.PrimaryHDU(imarr)
             prihdr =  hdu.header
 
-            prihdr.set("SCALE",F,"Arsec/pixel")
-            prihdr.set("XDECAM",paramDict["xDECam"],"Target xposition (mm) in focal plane")
-            prihdr.set("YDECAM",paramDict["yDECam"],"Target yposition (mm) in focal plane")
-            prihdr.set("EXTNAME",extname)  
-            prihdr.set("IX",ix)
-            prihdr.set("IY",iy)
+            prihdr.set("SCALE",0.27,"Arsec/pixel")
+            prihdr.set("XDECAM",self.paramDict["xDECam"],"Target xposition (mm) in focal plane")
+            prihdr.set("YDECAM",self.paramDict["yDECam"],"Target yposition (mm) in focal plane")
+            prihdr.set("EXTNAME",self.extname)  
+            prihdr.set("IX",self.ix)
+            prihdr.set("IY",self.iy)
             prihdr.set("FILTER",3,"Filter number 1-6=ugrizY")
             prihdr.set("FILTNAME","r","Filter name")
 
-            prihdr.set("GAIN",paramDict["gain"],"Np.e./ADU")
+            prihdr.set("GAIN",self.paramDict["gain"],"Np.e./ADU")
             prihdr.set("nEleInp",par[self.gFitFunc.ipar_nEle],"Number of photo-electrons")
             prihdr.set("rzeroInp",par[self.gFitFunc.ipar_rzero],"Fried Parameters [m]")
             prihdr.set("bkgdInp",par[self.gFitFunc.ipar_bkgd],"Background")
 
-            if paramDict["wfmFile"]=="" :
+            if self.paramDict["wfmFile"]=="" :
                 for iZ in range(self.gFitFunc.nZernikeSize):
                     name = "Z" + str(iZ+2)
                     prihdr.set(name,par[self.gFitFunc.ipar_ZernikeFirst+iZ])
 
             hdulist = pyfits.HDUList([hdu])
-            outFile = paramDict["outputPrefix"] + ".stamp.fits"
+            outFile = self.paramDict["outputPrefix"] + ".stamp.fits"
             hdulist.writeto(outFile,clobber=True)
+            return 1
 
         else:
             return imarr
 
 
-
-        #print "makeDonut is DONE!"
 
 #
 #  if running from the command line, then we need the ArgumentParser, otherwise
@@ -362,4 +372,4 @@ if __name__ == "__main__":
 
     # do it now
     m = makeDonut(**aDict)
-    m.generate(**aDict)
+    m.make(**aDict)

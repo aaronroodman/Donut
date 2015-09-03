@@ -1,7 +1,7 @@
 #
-# $Rev:: 191                                                          $:  
-# $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2014-09-03 11:00:33 -0700 (Wed, 03 Sep 2014)     $:  
+# $Rev:: 211                                                          $:
+# $Author:: roodman                                                   $:
+# $LastChangedDate:: 2015-08-17 09:43:49 -0700 (Mon, 17 Aug 2015)     $:
 #
 # Utility routines for donut code
 #
@@ -18,7 +18,7 @@ import pdb
 #
 # declare the functions in this file
 #
-__all__ = ["pupiltopsf","makeXPsf","fouriertrans","invfouriertrans","makeAiry","makeCirc","makeAtmosphere","makeGaussian","makePupilArrays","makeCircWfm","getZemaxArray","getZemaxWfm","getZemaxPsf","fbinrange","flipZemaxArray","loadImage","loadImageFromFile","clipPostageStamp","writePostageStamp","anaPsf","calcStarting","getAllFitsFiles","getFitsWfm"]
+__all__ = ["pupiltopsf","makeXPsf","fouriertrans","invfouriertrans","makeAiry","makeCirc","makeAtmosphere","makeGaussian","makePupilArrays","makeCircWfm","getZemaxArray","getZemaxWfm","getZemaxPsf","fbinrange","flipZemaxArray","loadImage","loadImageFromFile","clipPostageStamp","writePostageStamp","anaPsf","calcStarting","getAllFitsFiles","resample","getFitsWfm"]
 
 
 #
@@ -26,11 +26,11 @@ __all__ = ["pupiltopsf","makeXPsf","fouriertrans","invfouriertrans","makeAiry","
 #
 def pupiltopsf(xaxis,yaxis,lambdaz,pupil):
 #    pupil.resize(xaxis.shape)
-# use inverse transform here - needed to get WFM->PSF to match Zemax!!! 
+# use inverse transform here - needed to get WFM->PSF to match Zemax!!!
     pupilfft = theFFT.ifft2(pupil)
     pupilfftshift = theFFT.fftshift(pupilfft)
     psf = numpy.real(pupilfftshift*numpy.conj(pupilfftshift))
-    xpsf,ypsf = makeXPsf(xaxis,yaxis,lambdaz)    
+    xpsf,ypsf = makeXPsf(xaxis,yaxis,lambdaz)
     return xpsf,ypsf,psf
 
 def makeXPsf(xaxis,yaxis,lambdaz):
@@ -54,7 +54,7 @@ def makeXPsf(xaxis,yaxis,lambdaz):
     ypsf,xpsf = itricks.mgrid[-1./(2.*deltay):1./(2.*deltay):1./(Ny*deltay),-1./(2.*deltax):1./(2.*deltax):1./(Nx*deltax)]
     xpsf = lambdaz*xpsf
     ypsf = lambdaz*ypsf
-    
+
     return xpsf,ypsf
 
 
@@ -85,7 +85,7 @@ def invfouriertrans(xaxis,yaxis,input):
     #
     xax = xaxis[0,:]
     yax = yaxis[:,0]
-    
+
     deltax = xax[1] - xax[0]
     deltay = yax[1] - yax[0]
     Nx = xax.size
@@ -135,7 +135,7 @@ def makePupilArrays(nbin,lo,hi,radiusOuter):
     # make the rho,theta,xaxis,yaxis,pupilwave,pupilfunc arrays here
 
     # build the x,y grid, now defined so that imagearray[Y,X]
-    delta = (hi-lo)/nbin    
+    delta = (hi-lo)/nbin
     yaxis,xaxis = itricks.mgrid[lo:hi:delta,lo:hi:delta]
 
     # build the rho,theta areas on the pupil
@@ -146,7 +146,7 @@ def makePupilArrays(nbin,lo,hi,radiusOuter):
     dims = rho.shape
     pupilwave = numpy.zeros( dims )     #pupil wavefront phase
     pupilfunc = numpy.zeros( dims ) + 1j * numpy.zeros( dims ) #pupil function
-    
+
     return xaxis,yaxis,rho,theta,pupilwave,pupilfunc
 
 def makeCircWfm(wfm):
@@ -160,7 +160,7 @@ def makeCircWfm(wfm):
 
 def getZemaxArray(filename,skiplines,halfsize,nbins):
     #
-    # zemax arrays start at xlo,ylo and each line is one value of 
+    # zemax arrays start at xlo,ylo and each line is one value of
     # Y increasing in X, but the first line is the top in Y, and
     # successive lines decrease in Y
     #
@@ -174,7 +174,7 @@ def getZemaxArray(filename,skiplines,halfsize,nbins):
     hi = halfsize
     delta = halfsize*2.0/nbins
 #    xaxis = fbinrange(lo,hi,nbins)
-#    yaxis = fbinrange(lo,hi,nbins) 
+#    yaxis = fbinrange(lo,hi,nbins)
 
     # for even number of bins, 0.0 is between pixels nbins/2-1 and nbins/2, counting from 0 to nbins-1
     low = lo + delta/2.0
@@ -188,7 +188,7 @@ def getZemaxArray(filename,skiplines,halfsize,nbins):
 
 
     return xaxis,yaxis,fixedarray
-  
+
 def getZemaxWfm(txtFile):
 
     # parse for width and number of bins
@@ -276,7 +276,7 @@ def anaPsf(xaxis,yaxis,data):
     # radial sum -- around Centroid
     raxis = numpy.sqrt((xaxis-xCentroid)*(xaxis-xCentroid)+(yaxis-yCentroid)*(yaxis-yCentroid))
 
-    # histogram 
+    # histogram
     nsumbin = 1000
     npix,bin_edges = scipy.histogram(raxis,nsumbin,(0.,100.))
     rsumpix,bin_edges = scipy.histogram(raxis,nsumbin,(0.,100.),weights=data)
@@ -297,7 +297,7 @@ def anaPsf(xaxis,yaxis,data):
     qxx = ( (xaxis-xCentroid)*(xaxis-xCentroid)*data ).sum() / norm
     qyy = ( (yaxis-yCentroid)*(yaxis-yCentroid)*data ).sum() / norm
     qyx = ( (yaxis-yCentroid)*(xaxis-xCentroid)*data ).sum() / norm
-    
+
     e1 = (qxx-qyy)/(qxx+qyy)
     e2 = 2.0*qyx/(qxx+qyy)
 
@@ -307,17 +307,17 @@ def loadImageFromFile(fileName,iExtension=0,ixCenter=32,iyCenter=32,nhalfPixels=
 
     # nPixels
     nPixels = 2*nhalfPixels
-    
+
     # open fits file
     hdulist = pyfits.open(fileName)
     if dumpFlag:
         hdulist.info()
     data = hdulist[iExtension].data
-    
+
     # get postage stamp:
     # designed for even dimensioned array, where the center bin is the one just after the central point
     # so if nhalfPixel = 32 and ixCenter=32,iyCenter=32   xlo = 0 yhi = 63
-    # 
+    #
     # note that pyfits arrays are [row,column] or [Y,X]
     xlo = int(ixCenter - nhalfPixels)
     xhi = int(ixCenter + nhalfPixels - 1)
@@ -335,6 +335,7 @@ def loadImageFromFile(fileName,iExtension=0,ixCenter=32,iyCenter=32,nhalfPixels=
     xhipad = 0
     ylopad = 0
     yhipad = 0
+
     if xlo<xloLimit:
         xlopad = xloLimit - xlo
         xlo = xloLimit
@@ -347,7 +348,7 @@ def loadImageFromFile(fileName,iExtension=0,ixCenter=32,iyCenter=32,nhalfPixels=
     if yhi>yhiLimit:
         yhipad = yhi - yhiLimit
         yhi = yhiLimit
-    
+
     # imgarray is in electrons
     # data[ylo:yhi+1] gets bins from ylo to yhi
     if xlopad==0 and xhipad == 0 and ylopad == 0 and yhipad == 0:
@@ -356,7 +357,7 @@ def loadImageFromFile(fileName,iExtension=0,ixCenter=32,iyCenter=32,nhalfPixels=
         tmparray = gain * data[ylo:yhi+1,xlo:xhi+1]
         imgarray = numpy.zeros((nPixels,nPixels))
         imgarray[ylopad:nPixels-yhipad,xlopad:nPixels-xhipad] = tmparray
-    
+
     # dump postage stamp
     if dumpFlag:
         hdu = pyfits.PrimaryHDU(imgarray)
@@ -374,16 +375,16 @@ def loadImage(hdulist,iExtension=0,ixCenter=32,iyCenter=32,nhalfPixels=32,dumpFl
 
     # nPixels
     nPixels = 2*nhalfPixels
-    
+
     # get data from fits file
     if dumpFlag:
         hdulist.info()
     data = hdulist[iExtension].data
-    
+
     # get postage stamp:
     # designed for even dimensioned array, where the center bin is the one just after the central point
     # so if nhalfPixel = 32 and ixCenter=32,iyCenter=32   xlo = 0 yhi = 63
-    # 
+    #
     # note that pyfits arrays are [row,column] or [Y,X]
     xlo = int(ixCenter - nhalfPixels)
     xhi = int(ixCenter + nhalfPixels - 1)
@@ -413,7 +414,7 @@ def loadImage(hdulist,iExtension=0,ixCenter=32,iyCenter=32,nhalfPixels=32,dumpFl
     if yhi>yhiLimit:
         yhipad = yhi - yhiLimit
         yhi = yhiLimit
-    
+
     # imgarray is in electrons
     # data[ylo:yhi+1] gets bins from ylo to yhi
     if xlopad==0 and xhipad == 0 and ylopad == 0 and yhipad == 0:
@@ -422,7 +423,7 @@ def loadImage(hdulist,iExtension=0,ixCenter=32,iyCenter=32,nhalfPixels=32,dumpFl
         tmparray = gain * data[ylo:yhi+1,xlo:xhi+1]
         imgarray = numpy.zeros((nPixels,nPixels))
         imgarray[ylopad:nPixels-yhipad,xlopad:nPixels-xhipad] = tmparray
-    
+
     # dump postage stamp
     if dumpFlag:
         hdu = pyfits.PrimaryHDU(imgarray)
@@ -444,7 +445,7 @@ def clipPostageStamp(ixCenter,iyCenter,data,nPixels):
     # designed for even dimensioned array, where the center bin is the one
     #               just after the central point
     # so if nhalfPixel = 32 and ixCenter=32,iyCenter=32   xlo = 0 yhi = 63
-    # 
+    #
     # note that pyfits arrays are [row,column] or [Y,X]
     xlo = int(ixCenter - nhalfPixels)
     xhi = int(ixCenter + nhalfPixels - 1)
@@ -474,7 +475,7 @@ def clipPostageStamp(ixCenter,iyCenter,data,nPixels):
     if yhi>yhiLimit:
         yhipad = yhi - yhiLimit
         yhi = yhiLimit
-    
+
     # imgarray is in electrons
     # data[ylo:yhi+1] gets bins from ylo to yhi
     if xlopad==0 and xhipad == 0 and ylopad == 0 and yhipad == 0:
@@ -487,26 +488,26 @@ def clipPostageStamp(ixCenter,iyCenter,data,nPixels):
     # return the stamp
     return stamp
 
-    
+
 
 def writePostageStamp(hdulist,iFile,iExtension=0,ixCenter=32,iyCenter=32,nhalfPixels=32,outputFile="temp",extraheader=None):
 
     # nPixels
     nPixels = 2*nhalfPixels
-    
+
     # get pointer to this Extension's data
     data = hdulist[iExtension].data
-    
+
     # get postage stamp:
     imgarray = clipPostageStamp(ixCenter,iyCenter,data,nhalfPixels)
-    
+
     # dump postage stamp to new file
     stamphdu = pyfits.PrimaryHDU(imgarray)
     stamphdulist = pyfits.HDUList([stamphdu])
 
     # fill some header words of the postage stamp
-    stamphdr = stamphdu.header    
-    stamphdr.update("IFILE",iFile ,"File Number")    
+    stamphdr = stamphdu.header
+    stamphdr.update("IFILE",iFile ,"File Number")
     stamphdr.update("IEXT",iExtension,"Fits file extension")
     stamphdr.update("IX",int(ixCenter),"nominal x Center pixel")
     stamphdr.update("IY",int(iyCenter),"nominal y Center pixel")
@@ -515,7 +516,7 @@ def writePostageStamp(hdulist,iFile,iExtension=0,ixCenter=32,iyCenter=32,nhalfPi
     if extraheader!=None:
         for key in extraheader:
             stamphdr.update(key,extraheader[key])
-                       
+
     # write out postage stamp
     stamphdulist.writeto(outputFile,clobber=True)
 
@@ -531,7 +532,7 @@ def calcStarting(imgarray,nsigma=1.5,printLevel=0,debugFlag=False):
     # copy image to temporary array
     locarray = imgarray.copy()
 
-    # size of postage stamp 
+    # size of postage stamp
     nArea = locarray.shape[0]*locarray.shape[1]
 
     # get Mean,Sigma, Mask of pixels below Mean+nsigma*sigma
@@ -552,7 +553,7 @@ def calcStarting(imgarray,nsigma=1.5,printLevel=0,debugFlag=False):
             print "calcStarting: mean,sigma,counts = ",imgMean,imgStd,countsOld
         imgarrayMask = numpy.ma.masked_greater(locarray,imgMean+nsigma*imgStd)
         countsNew = (imgarrayMask.mask==False).sum()
-                
+
         ## # now find x,y-local mean of pixels above pedestal
         ## yloc,xloc = itricks.mgrid[-nPixBig:nPixBig+1,-nPixBig:nPixBig+1]
         ## locarraySubt = locarray - imgMean
@@ -570,7 +571,8 @@ def calcStarting(imgarray,nsigma=1.5,printLevel=0,debugFlag=False):
 
 
 def getAllFitsFiles(path):
-    # given a directory, this method finds all fits files and returns lists with their name and number
+    """ given a directory, this method finds all fits files and returns lists with their name and number
+    """
     names = []
     numbers = []
 
@@ -596,6 +598,57 @@ def getAllFitsFiles(path):
     # all done
     return names,numbers
 
+def resample(inArr,inPixscale,outShape,outPixscale):
+    """ resamples the inArr with inPixscale to outShape and outPixscale
+    this method does NO interpolation, just samples the input array
+    """
+
+    innRow,innCol = inArr.shape
+    outnRow,outnCol = outShape
+    
+    # construct map from outputRow to inputRow
+    iRowBinEdges = numpy.zeros((innRow+1))   # bin edges 
+    oRowBinCenters = numpy.zeros((outnRow))
+
+    iRowCenter = (innRow-1.)/2.   #center in pixel numbering, ie. center=511.5 for n=1024 and i=0->0123
+    for iRow in range(innRow+1):
+        iRowBinEdges[iRow] = (iRow - iRowCenter - 0.5)*inPixscale
+
+    oRowCenter = (outnRow-1.)/2.   #center in pixel numbering, ie. center=511.5 for n=1024 and i=0->0123
+    for oRow in range(outnRow):
+        oRowBinCenters[oRow] = (oRow - oRowCenter)*outPixscale
+
+    # find output centers in input bins, 
+    oRowMap = numpy.digitize(oRowBinCenters,iRowBinEdges) - 1
+
+    # construct map from outputCol to inputCol
+    iColBinEdges = numpy.zeros((innCol+1))   # bin edges 
+    oColBinCenters = numpy.zeros((outnCol))
+
+    iColCenter = (innCol-1.)/2.   #center in pixel numbering, ie. center=511.5 for n=1024 and i=0->0123
+    for iCol in range(innCol+1):
+        iColBinEdges[iCol] = (iCol - iColCenter - 0.5)*inPixscale
+
+    oColCenter = (outnCol-1.)/2.   #center in pixel numbering, ie. center=511.5 for n=1024 and i=0->0123
+    for oCol in range(outnCol):
+        oColBinCenters[oCol] = (oCol - oColCenter)*outPixscale
+
+    # find output centers in input bins
+    oColMap = numpy.digitize(oColBinCenters,iColBinEdges) - 1
+
+    # now resample...
+    outArr = numpy.zeros((outnRow,outnCol))
+    for orow in range(outnRow):
+        for ocol in range(outnCol):
+            irow = oRowMap[orow]
+            icol = oColMap[ocol]
+            if irow>=0 and irow<innRow and  icol>=0 and icol<innCol:
+                outArr[orow,ocol] = inArr[irow,icol]
+
+    # done
+    return outArr
+
+
 def getFitsWfm(fitsFile,extNo):
 
     # parse for width and number of bins
@@ -604,8 +657,4 @@ def getFitsWfm(fitsFile,extNo):
     data64 = data.astype(numpy.float64)
     return data64
     
-
     
-
-    
-

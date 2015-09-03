@@ -20,6 +20,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. */
 
 #define __ARRAY_H_VERSION__ 1.47
 
+#define NDEBUG    // AJR Added for speed - x2 improvement!
+
 // Defining NDEBUG improves optimization but disables argument checking.
 // Defining __NOARRAY2OPT inhibits special optimization of Array2[].
 
@@ -249,7 +251,7 @@ class array1 {
   operator T* () const {return v;}
 	
   array1<T> operator + (int i) const {return array1<T>(size-i,v+i);}
-	
+
   void Load(T a) const {
     __checkSize();
     for(unsigned int i=0; i < size; i++) v[i]=a;
@@ -286,7 +288,7 @@ class array1 {
   array1<T>& operator = (const T *a) {Load(a); return *this;}
   array1<T>& operator = (const array1<T>& A) {
     __checkEqual(size,A.Size(),1,1);
-    Load(A());
+    this->Load(A());  //AJR add this-> to compile with clang
     A.Purge();
     return *this;
   }
@@ -475,7 +477,7 @@ class array2 : public array1<T> {
   array2<T>& operator = (const array2<T>& A) {
     __checkEqual(nx,A.Nx(),2,1);
     __checkEqual(ny,A.Ny(),2,2);
-    Load(A());
+    this->Load(A());   //AJR add this-> to compile with clang
     A.Purge();
     return *this;
   }

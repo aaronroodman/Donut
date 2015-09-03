@@ -1,7 +1,7 @@
 #
-# $Rev:: 202                                                          $:  
+# $Rev:: 213                                                          $:  
 # $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2015-05-20 10:17:02 -0700 (Wed, 20 May 2015)     $:
+# $LastChangedDate:: 2015-09-01 16:28:44 -0700 (Tue, 01 Sep 2015)     $:
 #
 #
 # Python Class to encapsulate a 2-D mesh of points
@@ -67,7 +67,13 @@ class PointMesh(object):
             warr = numpy.array(dataPoints[selone]['w'].tolist())
             arr = numpy.dstack([xarr,yarr,zarr,warr])[0]   #also numpy.array(zip( ))  works too
             self.pointsArray[iCoord] = arr
-        
+
+    def checkMethod(self,myMethod,methodVal=None):
+        if self.myMethod=='sbs' or self.myMethod=='rbf' or self.myMethod=='tmean' or self.myMethod=='grid' or self.myMethod == "idw" or self.myMethod == "bmedian":
+            ok = True
+        else:
+            ok = False
+        return ok            
 
     def __init__(self,coordList,gridArray,pointsArray=None,pointsFile=None,myMethod='sbs',methodVal=None,debugFlag=False,title=""):
         """ initialize the class
@@ -108,7 +114,7 @@ class PointMesh(object):
         self.myMethod = myMethod
         self.methodVal = methodVal
         self.interpPresent = False
-        if self.myMethod=='sbs' or self.myMethod=='rbf' or self.myMethod=='tmean' or self.myMethod=='grid' or self.myMethod == "idw" or self.myMethod=="bmedian":
+        if self.checkMethod(myMethod,methodVal):
             self.interpPresent = True
             self.makeInterpolation(self.myMethod,self.methodVal)
 
@@ -124,7 +130,7 @@ class PointMesh(object):
             self.__dict__[key] = state[key]
 
         self.interpPresent = False                
-        if self.myMethod=='sbs' or self.myMethod=='rbf' or self.myMethod=='tmean' or self.myMethod=='grid' or self.myMethod == "idw" or self.myMethod == "bmedian":
+        if self.checkMethod(self.myMethod,self.methodVal):
             self.interpPresent = True
             self.makeInterpolation(self.myMethod,self.methodVal)
         
@@ -307,6 +313,7 @@ class PointMesh(object):
 
         elif self.myMethod == "bmedian":
             if self.interpBMedian[iCoord] != None:
+                xEdge,yEdge = self.interpEdges[iCoord]
                 xbin = numpy.digitize(x,xEdge[0,:]) - 1
                 ybin = numpy.digitize(y,yEdge[:,0]) - 1
                 return self.interpBMedian[iCoord][ybin,xbin]
@@ -1017,6 +1024,7 @@ class PointMesh(object):
         if self.interpPresent:
             self.makeInterpolation(self.myMethod,self.methodVal)       
 
+            
 
     def redoInterp(self,myMethod,methodVal=None):
 
@@ -1024,7 +1032,7 @@ class PointMesh(object):
         self.myMethod = myMethod
         self.methodVal = methodVal
         self.interpPresent = False
-        if self.myMethod=='sbs' or self.myMethod=='rbf' or self.myMethod=='tmean' or self.myMethod=='grid' or self.myMethod == "idw" or self.myMethod == "bmedian":
+        if self.checkMethod(myMethod,methodVal):
             self.interpPresent = True
             self.makeInterpolation(self.myMethod,self.methodVal)
 
@@ -1065,7 +1073,71 @@ class PointMesh(object):
 
         return newMesh
 
+    def writeMesh(self,fname):
+        """ write out the values at grid centers 
+        """
+        x,y,z,c = getGridpts()
+        w = numpy.ones((z.size))
+        f = open(fname)
+        f.write('Sensor , x , y , z , w')
+        for i in range(z.size):
+            f.write("%s,%f,%f,%f,%f" % (c[i],x[i],y[i],z[i],w[i]))
+        f.close()
         
+    def getGridpts(self):
+        """ collect all Grid points - smoothed representation of the data 
+        """
+        xVal = []
+        yVal = []
+        zVal = []
+        coordVal = []
+        for iCoord in self.coordList:
+            xGrid,yGrid = self.interpGrids[iCoords]
+            pts = self.interpValues[iCoords]
+            xVal.extend(xGrid.flatten())
+            yVal.extend(yGrid.flatten())
+            zVal.extend(pts.flatten())
+            coordVal.append(iCoord)
+
+        xArr = numpy.array(xVal)
+        yArr = numpy.array(yVal)
+        zArr = numpy.array(zVal)
+        coordArr = numpy.array(coordVal)
+        return xArr,yArr,zArr,coordArr
+        
+    def calc2pt(self):
+        """ calculate the two-point correlation function for a Mesh, using the values stored in interpValues
+        brute force!
+        """
+
+        binSize = 10.0 # mm
+        nbin = 50
+        minr = 0.0
+        maxr = binSize*nbin
+        twoptSum = numpy.array((nbin))
+        twoptNentries = numpy.array((nbin))
+
+        x,y,z,c = self.getGridpts()
+        n = x.size
+
+        for i in range(n):
+            for j in range(i,n):
+                x1 = x[i]
+                y1 = y[i]
+                x2 = x[j]
+                y2 = y[j]
+                r = numpy.sqrt(numpy.power(x1-x2,2)+numpy.power(y1-y2,2))
+                prod = z[i]*z[j]
+                rbin = numpy.int(r/binSize)
+                if rbin>=nbin:
+                    twoptSum[rbin] = twoptSum[rbin] + prod
+                    twoptNentries[rbin] = twoptNentires[rbin] + 1.0
+
+        return twoptSum/twoptNentries
+                    
+                
+        
+            
 
 
         

@@ -1,7 +1,7 @@
 //
-// $Rev:: 202                                                       $:  
+// $Rev:: 221                                                       $:  
 // $Author:: roodman                                                $:  
-// $LastChangedDate:: 2015-05-20 10:17:02 -0700 (Wed, 20 May 2015)  $:  
+// $LastChangedDate:: 2015-09-03 10:32:47 -0700 (Thu, 03 Sep 2015)  $:  
 //
 // DonutEngine.cc:  Engine to calculate focal plane image from 
 //                  pupil plane Zernike expansion
@@ -23,6 +23,11 @@
 
 DonutEngine::DonutEngine(MapStoS inputMapS, MapStoI inputMapI, MapStoD inputMapD){
 
+  // save these input options
+  _inputMapS = inputMapS;
+  _inputMapI = inputMapI;
+  _inputMapD = inputMapD;
+  
   fillOptions(inputMapS,inputMapI,inputMapD);
 
   // print if desired
@@ -33,46 +38,45 @@ DonutEngine::DonutEngine(MapStoS inputMapS, MapStoI inputMapI, MapStoD inputMapD
 
 }
 
-DonutEngine::DonutEngine(int iTelescope, 
-			 double waveLength, 
-			 int nZernikeTerms, 
-			 int nbin, 
-			 int nPixels, 
-			 const char* outputPrefix,
-			 bool debugFlag,
-			 int printLevel,
-			 bool gridCalcMode,
-			 int pixelOverSample,
-			 double scaleFactor,
-			 const char* inputPupilMask,
-			 int zemaxToDECamSignFlip,
-			 bool calcRzeroDerivative){
+//DonutEngine::DonutEngine(int iTelescope, 
+//			 double waveLength, 
+//			 int nZernikeTerms, 
+//			 int nbin, 
+//			 int nPixels, 
+//			 const char* outputPrefix,
+//			 bool debugFlag,
+//			 int printLevel,
+//			 bool gridCalcMode,
+//			 int pixelOverSample,
+//			 double scaleFactor,
+//			 const char* inputPupilMask,
+//			 int zemaxToDECamSignFlip,
+//			 bool calcRzeroDerivative){
 
-  _iTelescope = iTelescope;
-  _waveLength = waveLength;
-  _nZernikeTerms = nZernikeTerms;  //default was 37
-  _nbin = nbin; // scale if desired
-  _nPixels = nPixels;
-  _outputPrefix = outputPrefix;
-  _debugFlag = debugFlag;
-  _printLevel = printLevel;
-  _gridCalcMode = gridCalcMode;
-  _pixelOverSample = pixelOverSample;   // scale if desired
-  _scaleFactor = scaleFactor;  // scale if desired
-  _inputPupilMask = inputPupilMask;
-  _zemaxToDECamSignFlip = zemaxToDECamSignFlip;  // use =-1 for x(Zemax) => x(DECam FITs)  AND y(Zemax)=> y(DECam FITs) 
-  _calcRzeroDerivative = calcRzeroDerivative;
-  //   added y flip in code below on 10/3/2012, AJR
+//   _iTelescope = iTelescope;
+//   _waveLength = waveLength;
+//   _nZernikeTerms = nZernikeTerms;  //default was 37
+//   _nbin = nbin; // scale if desired
+//   _nPixels = nPixels;
+//   _outputPrefix = outputPrefix;
+//   _debugFlag = debugFlag;
+//   _printLevel = printLevel;
+//   _gridCalcMode = gridCalcMode;
+//   _pixelOverSample = pixelOverSample;   // scale if desired
+//   _scaleFactor = scaleFactor;  // scale if desired
+//   _inputPupilMask = inputPupilMask;
+//   _zemaxToDECamSignFlip = zemaxToDECamSignFlip;  // use =-1 for x(Zemax) => x(DECam FITs)  AND y(Zemax)=> y(DECam FITs) 
+//   _calcRzeroDerivative = calcRzeroDerivative;
+//   //   added y flip in code below on 10/3/2012, AJR
 
-  // always initialize xDECam,yDECam to zero, change with setXYDECam
-  _xDECam = 0.0;
-  _yDECam = 0.0;
+//   // always initialize xDECam,yDECam to zero, change with setXYDECam
+//   _xDECam = 0.0;
+//   _yDECam = 0.0;
 
-  // initialize everything  
-  init();
+//   init();
 
-  printOptions();
-}
+//   printOptions();
+// }
 
 DonutEngine::~DonutEngine(){
 
@@ -239,8 +243,15 @@ void DonutEngine::init(){
   nCallsCalcDerivative = 0;
 
   // we may want to calculate the Rzero Derivative, so make another DonutEngine to aid this calculation
-  if (_calcRzeroDerivative) { 
-  _anotherDonutEngine  = new DonutEngine(_iTelescope,_waveLength,_nZernikeTerms,_nbin,_nPixels,"calcDerivative",_debugFlag, _printLevel, _gridCalcMode, _pixelOverSample, _scaleFactor,"",_zemaxToDECamSignFlip, false);
+  if (_calcRzeroDerivative) {
+    MapStoS inS = _inputMapS;
+    MapStoI inI = _inputMapI;
+    MapStoD inD = _inputMapD;
+
+    inS["outputPrefix"] = "calcDerivative";
+    inI["calcRzeroDerivative"] = 0;  //Turn this off, avoid an infinite loop!
+     
+    _anotherDonutEngine  = new DonutEngine(inS,inI,inD);
   }
 
 }
@@ -252,6 +263,7 @@ void DonutEngine::calcParameters(int iT){
   //            = 1 for Blanco + MosaicII
   //            = 2 for LSST
   //            = 3 for Magellan MegaCam
+  //            = 4 for Magellan IMACS F/2
   // 
 
 
@@ -283,6 +295,13 @@ void DonutEngine::calcParameters(int iT){
     _lambdaz = _waveLength * _zLength;  
     _fLength = 34.97;
     _pixelSize = 2.0 * 13.5e-6;  // operated in 2x2 mode
+  } else if (iT==4){
+    _outerRadius = 6.5/2.0;
+    _innerRadius = 0.352 * _outerRadius; // from Povilas
+    _zLength = 15.47;  // F#2.38 see http://www.lco.cl/telescopes-information/magellan/instruments/imacs/imacs-specs
+    _lambdaz = _waveLength * _zLength;  
+    _fLength = 15.47;
+    _pixelSize = 1.0 * 15.0e-6;  // operated in 1x1 mode, 15 micron pixels
 
   } 
 
@@ -498,7 +517,7 @@ void DonutEngine::setupStuff(){
   for (int i=0;i<_nbin*_nbin;i++){
     _rAtmos(i) = sqrt(xAtmos(i)*xAtmos(i) + yAtmos(i)*yAtmos(i));
   }
-  _shftrAtmos = _rAtmos;    // does a Deep copy as long as _shftrAtmos is already declared
+  _shftrAtmos = _rAtmos;    // deep copy 
   fftShift(_shftrAtmos); // shifts in place, was InvShift
   
 }
@@ -839,7 +858,7 @@ void DonutEngine::calcPupilMask(){
       Real spiderSlope = 3.01e-4;
 
       // now loop over all bins, and build the pupil
-      bool spiderMask(false);  //true mean pupil==1 (ie. clear)
+      bool spiderMask(false);  //x1true mean pupil==1 (ie. clear)
       bool filtExchMask(false);
       bool annulusMask(false);
 	

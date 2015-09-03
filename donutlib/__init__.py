@@ -1,7 +1,7 @@
 #
-# $Rev:: 191                                                 $:  
+# $Rev:: 216                                                 $:  
 # $Author:: roodman                                          $:  
-# $LastChangedDate:: 2014-09-03 11:00:33 -0700 (Wed, 03 Sep #$:  
+# $LastChangedDate:: 2015-09-01 16:47:51 -0700 (Tue, 01 Sep #$:  
 #
 
 """
@@ -12,6 +12,6 @@ Copyright, Aaron Roodman, KIPAC/SLAC, Stanford University, 2012.
 
 """
 
-__all__ = ['donutengine','donutfit','donututil','donutana','decamutil','PointMesh','makedonut']
+__all__ = ['donutengine','donutfit','donututil','donutana','decamutil','PointMesh','makeDonut','IDWInterp','dfdFinder','megacamutil']
 
 

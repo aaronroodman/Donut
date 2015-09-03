@@ -1,0 +1,12 @@
+# no library files
+*.o
+*.so
+*.pyc
+
+# no testing files
+*.fits
+test/    
+
+# no swig output
+*.cxx
+src/donutengine.py    

@@ -1,7 +1,7 @@
 #
-# $Rev:: 191                                                          $:  
+# $Rev:: 206                                                          $:  
 # $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2014-09-03 11:00:33 -0700 (Wed, 03 Sep 2014)     $:
+# $LastChangedDate:: 2015-08-03 11:19:38 -0700 (Mon, 03 Aug 2015)     $:
 #
 #
 # Python Class to implement Inverse Distance Weighted interpolation
@@ -48,14 +48,20 @@ class IDWInterp(object):
         # make the kNN tree
         self.kdtree= cKDTree(xyArr)
 
+        # kNN to use
+        if len(self.Z)<kNN:
+            self.usekNN = len(self.Z)
+            print "IDWInterp: asked for %d kNN, using %d" % (self.kNN,self.usekNN)
+        else:
+            self.usekNN = self.kNN
+
     def ev(self,X,Y):
         """ evaluate the interpolant
         """
         # find the nearest neighbors
         xyArr = numpy.array(zip(X,Y))
-        dNeighbors,indexNeighbors = self.kdtree.query(xyArr,self.kNN)
+        dNeighbors,indexNeighbors = self.kdtree.query(xyArr,self.usekNN)
 
-        #  buggy if kNN>entries...
         #
         # get the Z values of the neighbors
         zNeighbors = self.Z[indexNeighbors]
