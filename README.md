@@ -10,7 +10,7 @@ should cite this reference.
 Setup Instructions (sorry, haven't implemented any standard build
 procedures yet).
 
-1) cd src
-2) make swig
-3) make or on SLAC computers: bsub -q short -o make.log make
-4) add   YourArea/Donut  to PYTHONPATH
+1. cd src
+2. make swig
+3. make or on SLAC computers: bsub -q short -o make.log make
+4. add   YourArea/Donut  to PYTHONPATH
