@@ -1,9 +1,7 @@
 #
-# $Rev:: 211                                                          $:
-# $Author:: roodman                                                   $:
-# $LastChangedDate:: 2015-08-17 09:43:49 -0700 (Mon, 17 Aug 2015)     $:
-#
 # Utility routines for donut code
+#
+#     Aaron Roodman (C) SLAC National Accelerator Laboratory, Stanford University 2012.
 #
 import numpy
 import scipy

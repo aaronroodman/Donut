@@ -1,12 +1,7 @@
 //
-// $Rev:: 219                                                       $:  
-// $Author:: roodman                                                $:  
-// $LastChangedDate:: 2015-09-02 16:15:02 -0700 (Wed, 02 Sep 2015)  $:  
-//
-//
 // DonutEngine.h:  Engine to calculate focal plane image from 
 //                  pupil plane Zernike expansion
-// Copyright (C) 2011 Aaron J. Roodman, SLAC National Accelerator Laboratory
+// Copyright (C) 2011 Aaron J. Roodman, SLAC National Accelerator Laboratory, Stanford University
 //
 //
 #ifndef DONUTENGINE_H

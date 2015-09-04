@@ -1,9 +1,4 @@
 #
-# $Rev:: 213                                                          $:  
-# $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2015-09-01 16:28:44 -0700 (Tue, 01 Sep 2015)     $:
-#
-#
 # Python Class to encapsulate a 2-D mesh of points
 # multiple "Coordinate" systems are possible, each with separate
 # interpolation grids
@@ -46,6 +41,8 @@ class PointMesh(object):
     """ PointMesh encapsulates a 2-D mesh of points.  The points have y,x,index
     dimensions.  Each value of index may provide its own coordinate system, or there may be a
     single coordinate system. Multiple interpolation methods are implemented.
+
+    Aaron Roodman (C) SLAC National Accelerator Laboratory, Stanford University 2012.
     """
     def readPointsFromFile(self,fileName):
 

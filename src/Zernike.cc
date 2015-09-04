@@ -1,11 +1,7 @@
 //
-// $Rev:: 219                                                         $:  
-// $Author:: roodman                                                  $:  
-// $LastChangedDate:: 2015-09-02 16:15:02 -0700 (Wed, 02 Sep 2015)    $:  
-//
 // Zernike.cc:  Class to calculate Zernike polynomials of desired order
 //
-// Copyright (C) 2011 Aaron J. Roodman, SLAC National Accelerator Laboratory
+// Copyright (C) 2011 Aaron J. Roodman, SLAC National Accelerator Laboratory, Stanford University
 //
 #include <iostream>
 #include <cmath>

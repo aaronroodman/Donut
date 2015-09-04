@@ -1,8 +1,3 @@
-#
-# $Rev:: 202                                                          $:  
-# $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2015-05-20 10:17:02 -0700 (Wed, 20 May 2015)     $:
-#
 import numpy
 import scipy
 import time
@@ -22,6 +17,8 @@ import pdb
 
 class donutana(object):
     """ donutana is a class used to analyze the results from donut fits for the DES experiment.
+
+    Aaron Roodman (C) SLAC National Accelerator Laboratory, Stanford University 2012.
     """
 
     def __init__(self,**inputDict):

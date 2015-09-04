@@ -1,10 +1,6 @@
 //
-// $Rev:: 191                                                       $:  
-// $Author:: roodman                                                $:  
-// $LastChangedDate:: 2014-09-03 11:00:33 -0700 (Wed, 03 Sep 2014)  $:  
-//
 // ArrayTypes.h :  defines typedefs for multidimensional arrays used in 
-// Copyright (C) 2011 Aaron J. Roodman, SLAC National Accelerator Laboratory
+// Copyright (C) 2011 Aaron J. Roodman, SLAC National Accelerator Laboratory, Stanford University
 //
 
 #ifndef ARRAYTYPES_HH

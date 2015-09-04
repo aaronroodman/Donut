@@ -1,8 +1,3 @@
-#
-# $Rev:: 209                                                          $:  
-# $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2015-08-03 11:24:06 -0700 (Mon, 03 Aug 2015)     $:
-#
 import time
 import os
 import numpy
@@ -21,7 +16,9 @@ from donutlib.donututil import calcStarting
 from donutlib.decamutil import decaminfo
 
 class donutfit(object):
-    """ donutfit is a class used to fit donuts, using donutengine and MINUIT, for the DES experiment, Aaron Roodman
+    """ donutfit is a class used to fit donuts, using donutengine and MINUIT, for the DES experiment
+
+    Aaron Roodman (C) SLAC National Accelerator Laboratory, Stanford University 2012.
     """
 
     def __init__(self,**inputDict):

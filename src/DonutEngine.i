@@ -1,4 +1,4 @@
-%module(docstring="donutengine calculates out of focus stars from a pupil plane Zernike expansion, for the DECam, Aaron Roodman 2012") donutengine
+%module(docstring="donutengine calculates out of focus stars from a pupil plane Zernike expansion, for the DECam, Aaron Roodman SLAC National Accelerator Laboratory, Stanford University, 2012") donutengine
 
 // make a docstring for Swig created code
 %feature("autodoc", "3");

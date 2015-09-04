@@ -22,7 +22,9 @@ from donutlib.decamutil import decaminfo
 
 
 class makedonut(object):
-    """ make Donuts 
+    """ make simulated Donuts
+
+    Aaron Roodman (C) SLAC National Accelerator Laboratory, Stanford University 2012.
     """
 
     def __init__(self,**inputDict):

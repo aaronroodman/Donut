@@ -26,7 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. */
 //
 //
 //
-// Copyright (C) 2011 Aaron J. Roodman, SLAC National Accelerator Laboratory
+// Aaron J. Roodman, SLAC National Accelerator Laboratory, 2011.
 //
 #ifndef FFTWCLASS_HH
 #define FFTWCLASS_HH

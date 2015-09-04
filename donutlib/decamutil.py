@@ -1,8 +1,4 @@
 #
-# $Rev:: 213                                                          $:  
-# $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2015-09-01 16:28:44 -0700 (Tue, 01 Sep 2015)     $:
-#
 # Utility methods for DECam
 #
 import numpy
@@ -10,6 +6,8 @@ from collections import OrderedDict
 
 class decaminfo(object):
     """ decaminfo is a class used to contain DECam geometry information and various utility routines
+
+    Aaron Roodman (C) SLAC National Accelerator Laboratory, Stanford University 2012.
     """
 
     def info(self):

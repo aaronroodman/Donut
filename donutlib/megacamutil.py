@@ -1,8 +1,3 @@
-#
-# $Rev:: 191                                                          $:  
-# $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2014-09-03 11:00:33 -0700 (Wed, 03 Sep 2014)     $:
-#
 # Utility methods for MEGACam 4604x2048 pixels
 # assuming 2x2 readout here for 2304x1024 pixels 13.5*2 = 27.0 microns
 # plate scale = 169 micron/arcsec, or = 5.92 marcsec/micron 
@@ -13,6 +8,8 @@ from collections import OrderedDict
 
 class megacaminfo(object):
     """ megacaminfo is a class used to contain Megacam geometry information and various utility routines
+
+    Aaron Roodman (C) SLAC National Accelerator Laboratory, Stanford University 2012.
     """
 
     def info(self):

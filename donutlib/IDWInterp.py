@@ -1,9 +1,4 @@
 #
-# $Rev:: 206                                                          $:  
-# $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2015-08-03 11:19:38 -0700 (Mon, 03 Aug 2015)     $:
-#
-#
 # Python Class to implement Inverse Distance Weighted interpolation
 # using kNearestNeighbors.  
 #
@@ -32,6 +27,8 @@ class IDWInterp(object):
     # IDW formula is
     # IDW formula is (for power=1)
     # value = (z1/d1 + z2/d2 + z3/d3) / (1/d1 + 1/d2 + 1/d3)
+
+    Aaron Roodman (C) SLAC National Accelerator Laboratory, Stanford University 2012.
 
     """
 
