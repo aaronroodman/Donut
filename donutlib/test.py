@@ -2,7 +2,7 @@
 ### Script for very basic testing of donutengine and donutfit
 ###
 
-from donutlib.makeDonut import makeDonut
+from donutlib.makedonut import makedonut
 from donutlib.donutfit import donutfit
 
 
@@ -17,7 +17,7 @@ z10 = -.05
 z11 = .2
 inputDict = {'writeToFits':True,'outputPrefix':'unittest.0001','iTelescope':0,'nZernikeTerms':37,'nbin':512,'nPixels':64,'pixelOverSample':8,'scaleFactor':1.,'rzero':0.125, 'nEle':1.0e6, 'background':4000., 'randomFlag':True, 'randomSeed':2314809, 'ZernikeArray':[0.,0.,0.,z4,z5,z6,z7,z8,z9,z10,z11]}
 
-m = makeDonut(**inputDict)
+m = makedonut(**inputDict)
 donut1 = m.make()
 
 z4 = 10.5

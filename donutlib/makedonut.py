@@ -21,7 +21,7 @@ from donutlib.donutengine import donutengine
 from donutlib.decamutil import decaminfo
 
 
-class makeDonut(object):
+class makedonut(object):
     """ make Donuts 
     """
 
@@ -60,7 +60,7 @@ class makeDonut(object):
 
         # check parameters are ok
         if self.paramDict["nbin"] != self.paramDict["nPixels"]*self.paramDict["pixelOverSample"]:
-            print "makeDonut:  nbin must = nPixels * pixelOverSample !!!"
+            print "makedonut:  nbin must = nPixels * pixelOverSample !!!"
             sys.exit(1)
 
         # also require that _Lu > 2R, ie. that pupil fits in pupil plane
@@ -70,7 +70,7 @@ class makeDonut(object):
         F = 2.9  # hardcode for DECam for now
         pixelSize = 15.e-6 
         if self.paramDict["pixelOverSample"] * self.paramDict["scaleFactor"] * (self.paramDict["waveLength"] * F / pixelSize) < 1. :
-            print "makeDonut:  ERROR pupil doesn't fit!!!"
+            print "makedonut:  ERROR pupil doesn't fit!!!"
             print "            value = ",self.paramDict["pixelOverSample"] * self.paramDict["scaleFactor"] * (self.paramDict["waveLength"] * F / pixelSize)
             #sys.exit(2)
 
@@ -173,12 +173,12 @@ class makeDonut(object):
             self.gFitFunc.calcWFMtoImage(self.paramDict["wfmArray"])
 
         # did we get this far?
-        #print "makeDonut: calcAll is finished!"
+        #print "makedonut: calcAll is finished!"
 
         # randomize
         theImage = self.gFitFunc.getvImage().copy()
 
-        #print "makeDonut: got the vImage"
+        #print "makedonut: got the vImage"
 
         if self.paramDict["randomFlag"]:
             postageshape = theImage.shape
@@ -205,7 +205,7 @@ class makeDonut(object):
 
         #output the calculated image
 
-        #print "makeDonut: ready to make output file"
+        #print "makedonut: ready to make output file"
 
         # calculated Donut
         if self.paramDict["writeToFits"]:
@@ -247,7 +247,7 @@ class makeDonut(object):
 #
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(prog='makeDonut')
+    parser = argparse.ArgumentParser(prog='makedonut')
     parser.add_argument("-i", "--inputFile",
                   dest="inputFile",
                   default="",
@@ -371,5 +371,5 @@ if __name__ == "__main__":
     print aDict
 
     # do it now
-    m = makeDonut(**aDict)
+    m = makedonut(**aDict)
     m.make(**aDict)

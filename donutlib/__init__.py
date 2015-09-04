@@ -12,6 +12,6 @@ Copyright, Aaron Roodman, KIPAC/SLAC, Stanford University, 2012.
 
 """
 
-__all__ = ['donutengine','donutfit','donututil','donutana','decamutil','PointMesh','makeDonut','IDWInterp','dfdFinder','megacamutil']
+__all__ = ['donutengine','donutfit','donututil','donutana','decamutil','PointMesh','makedonut','IDWInterp','dfdFinder','megacamutil']
 
 
