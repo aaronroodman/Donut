@@ -53,7 +53,7 @@ class makedonut(object):
                           "nEle":1.0e6,
                           "background":4000.,
                           "randomFlag":False,
-                          "randomSeed":2304809823,
+                          "randomSeed":209823,  # if this is an invalid integer, crazy errors will ensue
                           "gain":1.0,
                           "flipFlag":False,
                           "ZernikeArray":[]}
