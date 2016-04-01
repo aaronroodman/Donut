@@ -540,6 +540,9 @@ class donutana(object):
             # the Canvas
 
             # unique name for our canvas
+            # might be that
+            # gROOT.SetBatch(kTRUE)
+            # will prevent the Canvas from appearing, but will still get made in output pickle
             tstr = "canvas" + str(time.time())
 
             canvas = TCanvas(tstr,tstr,300*nplots,1000)

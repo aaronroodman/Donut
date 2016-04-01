@@ -18,10 +18,11 @@ ifeq ($(OS), Darwin)
 
 else
 	#CFLAGS = -Wall -ansi -g -fPIC
-# standard	CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC
-# new, faster, use in queue CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
-	#CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC	
-	CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
+# standard:	CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC
+# new, faster, use in queue: CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC  ### but is now failing!!
+# for interactive making use: CFLAGS =  -ansi -O3  -m64  -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2   -fPIC
+	CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC	
+	#CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
 	LD = g++
 	LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(XRAY_SOFTDIR)/cfitsio/3.37/lib' -Wl,-rpath,'$(XRAY_SOFTDIR)/fftw/3.3.2/lib'
 

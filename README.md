@@ -12,5 +12,5 @@ procedures yet).
 
 1. cd src
 2. make swig
-3. make or on SLAC computers: bsub -q short -o make.log make
+3. make or on SLAC computers: bsub -W 0:10:00 -o make.log make
 4. add   YourArea/Donut  to PYTHONPATH

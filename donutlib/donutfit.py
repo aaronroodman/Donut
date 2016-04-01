@@ -166,7 +166,9 @@ class donutfit(object):
 
             # load the Image AJR 9/14/2012 - now assume we are only running on postage stamps - remove ability to
             # work on full image, never use that anymore...
-            self.imgarray = hdulist[0].data.copy()
+            ### self.imgarray = hdulist[0].data.copy() this caused bugs with some fits files
+            self.imgarray = hdulist[0].data.astype(numpy.float64)
+                
             constantError2 = 7.1 * 7.1 
             self.sigmasq = self.imgarray + constantError2
             self.weight = 1.0/self.sigmasq
@@ -177,7 +179,7 @@ class donutfit(object):
         else:
             self.inputHeader = {}
             extname = 'None'
-            self.imgarray = inputImageArray.copy()
+            self.imgarray = inputImageArray.astype(numpy.float64)
             self.weight = 1.0/numpy.sqrt(self.imgarray)
        
         # setup starting Zernike array
