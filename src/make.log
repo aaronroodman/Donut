@@ -1,0 +1,41 @@
+g++ -c -ansi -O3  -m64 -march=native -mtune=native -fPIC DonutEngine.cc -I/afs/slac/g/ki/software/cfitsio/3.37/include -I/afs/slac/g/ki/software/fftw/3.3.2/include -I/nfs/slac/g/ki/ki06/roodman/Software/anaconda/include/python2.7   -o DonutEngine.o
+g++ -c -ansi -O3  -m64 -march=native -mtune=native -fPIC Zernike.cc -I/afs/slac/g/ki/software/cfitsio/3.37/include -I/afs/slac/g/ki/software/fftw/3.3.2/include -I/nfs/slac/g/ki/ki06/roodman/Software/anaconda/include/python2.7   -o Zernike.o
+g++ -c -ansi -O3  -m64 -march=native -mtune=native -fPIC FFTWClass.cc -I/afs/slac/g/ki/software/cfitsio/3.37/include -I/afs/slac/g/ki/software/fftw/3.3.2/include -I/nfs/slac/g/ki/ki06/roodman/Software/anaconda/include/python2.7   -o FFTWClass.o
+g++  -ansi -O3  -m64 -march=native -mtune=native -fPIC -I/afs/slac/g/ki/software/cfitsio/3.37/include -I/afs/slac/g/ki/software/fftw/3.3.2/include -I/nfs/slac/g/ki/ki06/roodman/Software/anaconda/include/python2.7   -c -o DonutEngineWrap.o DonutEngineWrap.cxx 
+g++ -shared -export-dynamic -Wl,-rpath,'/afs/slac/g/ki/software/cfitsio/3.37/lib' -Wl,-rpath,'/afs/slac/g/ki/software/fftw/3.3.2/lib' -o _donutengine.so  DonutEngineWrap.o DonutEngine.o Zernike.o FFTWClass.o  -L/afs/slac/g/ki/software/cfitsio/3.37/lib -L/afs/slac/g/ki/software/fftw/3.3.2/lib  -L/usr/lib64 -L/nfs/slac/g/ki/ki06/roodman/Software/anaconda/lib/python2.7 -lcfitsio -lfftw3 -lm
+
+------------------------------------------------------------
+Sender: LSF System <lsf@neb-lsf0003.slac.stanford.edu>
+Subject: Job 575829: <make> in cluster <slac> Done
+
+Job <make> was submitted from host <ki-ls09> by user <roodman> in cluster <slac>.
+Job was executed on host(s) <neb-lsf0003.slac.stanford.edu>, in queue <short>, as user <roodman> in cluster <slac>.
+</u/ec/roodman> was used as the home directory.
+</u/ec/roodman/Astrophysics/Code/Donut/src> was used as the working directory.
+Started at Thu Feb 25 14:14:50 2016
+Results reported on Thu Feb 25 14:15:08 2016
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+make
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   14.82 sec.
+    Max Memory :                                 18 MB
+    Average Memory :                             18.00 MB
+    Total Requested Memory :                     -
+    Delta Memory :                               -
+    Max Swap :                                   455 MB
+    Max Processes :                              5
+    Max Threads :                                6
+    Run time :                                   18 sec.
+    Turnaround time :                            29 sec.
+
+The output (if any) is above this job summary.
+
