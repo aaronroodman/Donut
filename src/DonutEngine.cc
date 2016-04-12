@@ -279,7 +279,7 @@ void DonutEngine::calcParameters(int iT){
     _pixelSize = 15.0e-6; 
   } else if (iT==2){
     _outerRadius = 1.10874;   // this the radius of the pupil as found in Zemax!
-    _innerRadius = 0.606 * _outerRadius;   
+    _innerRadius = 0.61 * _outerRadius;   // 4/4/2016 look at Zemax gives 0.612 - use 0.61 for LSST donuts
     _zLength = 2.734706;
     _lambdaz = _waveLength * _zLength;  
     _fLength = 10.31007;
