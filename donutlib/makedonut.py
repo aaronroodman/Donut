@@ -104,8 +104,8 @@ class makedonut(object):
             self.ix = -1024
             self.iy = 2048
         else:        
-            self.extname = dinfo.getSensor(X,Y)
-            x,y = dinfo.getPixel(self.extname,X,Y)
+            self.extname = self.dinfo.getSensor(X,Y)
+            x,y = self.dinfo.getPixel(self.extname,X,Y)
             self.ix = int(x+0.5)
             self.iy = int(y+0.5)
 
