@@ -29,8 +29,11 @@ else
 # -Wl,-rpath,'$(XRAY_SOFTDIR)/fftw/3.3.2/lib'
 
 		LIBS = -L$(CFITSIO_PRODUCT)/lib  -L/usr/lib64 -lcfitsio -lfftw3 -lm
-		INCS = -I$(CFITSIO_PRODUCT)/include -I/usr/include/python2.7  
-
+		ifneq (,$(findstring eups_dos,$(EUPS_PATH)))
+			INCS = -I$(CFITSIO_PRODUCT)/include -I/n/des/desi/software/products/python-3.5.0.Linux64/include/python3.5m/  
+		else
+			INCS = -I$(CFITSIO_PRODUCT)/include -I/usr/include/python2.7  
+		endif
 		SW = swig
 	else
 #		CFLAGS = -Wall -ansi -g -fPIC

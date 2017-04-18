@@ -443,7 +443,7 @@ def hrout(fileName):
     output.cd()
     for obj in myList:
         if not obj.InheritsFrom("TTree")  :
-            print obj.GetName(), obj.GetTitle()
+            print(obj.GetName(), obj.GetTitle())
             obj.Write()
                 
     output.Close()
