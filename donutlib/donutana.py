@@ -184,16 +184,13 @@ class donutana(object):
         if self.paramDict["zPointsFile"] != "":
             self.paramDict["z4PointsFile"] = self.paramDict["zPointsFile"]
 
-        self.debugString = ""
         # build the reference meshes
         for iZ in range(4,15+1):
             name = "z%dPointsFile" % (iZ)
             title = "Zernike %d" % (iZ)
             if self.paramDict[name] != "":
-                self.debugString += "\n%s"%name
                 # check that the file exists!
                 if os.path.isfile(self.paramDict[name]):
-                    self.debugString += " -- Has file"
                     theMesh = PointMesh(self.coordList,self.gridDict,pointsFile=self.paramDict[name],myMethod=self.paramDict["interpMethod"],methodVal=self.paramDict["methodVal"],title=title)
                     meshName = "z%dMesh" % iZ
                     self.meshDict[meshName] = theMesh
