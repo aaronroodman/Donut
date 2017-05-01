@@ -3,7 +3,6 @@
 # multiple "Coordinate" systems are possible, each with separate
 # interpolation grids
 #
-
 import numpy
 import scipy
 import pandas as pd
@@ -56,6 +55,7 @@ class PointMesh(object):
         # convert the raw pandas format to a dictionary keyed by sensor name
         # containing a numpy array of x,y,z,w
         self.pointsArray = {}
+        dataPoints['Sensor'] = dataPoints['Sensor'].str.decode('utf-8')
         for iCoord in self.coordList:
             selone = (dataPoints['Sensor']==iCoord)
             xarr = numpy.array(dataPoints[selone]['x'].tolist())
