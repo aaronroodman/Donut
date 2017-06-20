@@ -4,7 +4,7 @@ import numpy
 import sys
 # OrderedDict is a feature of 2.7 and beyond only
 from collections import OrderedDict
-import pyfits
+from astropy.io import fits as pyfits
 from array import array
 import pdb
 
@@ -444,25 +444,25 @@ class donutfit(object):
 
         # fill primary header both with input Header and fit results
         for key in outputHeaderDict:
-            primaryHeader.update(key,outputHeaderDict[key])
+            primaryHeader[key] = outputHeaderDict[key]
         for key in outputDict:
-            primaryHeader.update(key,outputDict[key])
+            primaryHeader[key] = outputDict[key]
         hduListOutput.append(primaryOutput)
         
         # calculated Donut
         calcHdu = pyfits.ImageHDU(self.gFitFunc.getvImage())
         calcHeader = calcHdu.header
         for key in outputHeaderDict:
-            calcHeader.update(key,outputHeaderDict[key])
+            calcHeader[key] = outputHeaderDict[key]
         for key in outputDict:
-            calcHeader.update(key,outputDict[key])
+            calcHeader[key] = outputDict[key]
         hduListOutput.append(calcHdu)
 
         # original image
         imageHdu = pyfits.ImageHDU(self.imgarray)
         imageHeader = imageHdu.header
         for key in outputHeaderDict:
-            imageHeader.update(key,outputHeaderDict[key])
+            imageHeader[key] = outputHeaderDict[key]
         hduListOutput.append(imageHdu)
             
         # diff Donut - Calc
@@ -470,7 +470,7 @@ class donutfit(object):
             diffHdu = pyfits.ImageHDU(self.imgarray-self.gFitFunc.getvImage())
             diffHeader = diffHdu.header
             for key in outputHeaderDict:
-                imageHeader.update(key,outputHeaderDict[key])
+                imageHeader[key] = outputHeaderDict[key]
             hduListOutput.append(diffHdu)
 
         # Chi2 Donut-Calc
@@ -478,7 +478,7 @@ class donutfit(object):
             chi2Hdu = pyfits.ImageHDU(self.pullsq)
             chi2Header = chi2Hdu.header
             for key in outputHeaderDict:
-                imageHeader.update(key,outputHeaderDict[key])
+                imageHeader[key] = outputHeaderDict[key]
             hduListOutput.append(chi2Hdu)
 
 
