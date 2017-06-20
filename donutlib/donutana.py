@@ -585,6 +585,7 @@ class donutana(object):
 
     def calcHexapod(self,dictOfResults):
 
+
         zResultDict = dictOfResults["z4ResultDict"]
         z5ResultDict = dictOfResults["z5ResultDict"]
         z6ResultDict = dictOfResults["z6ResultDict"]
