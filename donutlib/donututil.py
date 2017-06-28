@@ -196,7 +196,7 @@ def getZemaxWfm(txtFile):
     valdict = {"width":0.,"nbin":0}
     zFile = open(txtFile,'r')
     for line in zFile.readlines():
-        for varname in regdict.keys():
+        for varname in list(regdict.keys()):
             aregexp = regdict[varname]
             matobj = aregexp.search(line)
             if matobj != None :
@@ -227,7 +227,7 @@ def getZemaxPsf(txtFile):
     valdict = {"width":0.,"nbin":0}
     zFile = open(txtFile,'r')
     for line in zFile.readlines():
-        for varname in regdict.keys():
+        for varname in list(regdict.keys()):
             aregexp = regdict[varname]
             matobj = aregexp.search(line)
             if matobj != None :
@@ -538,7 +538,7 @@ def calcStarting(imgarray,nsigma=1.5,printLevel=0,debugFlag=False):
     imgMean = locarray.mean()
     imgStd = locarray.std()
     if debugFlag:
-        print "calcStarting: mean,sigma = ",imgMean,imgStd
+        print("calcStarting: mean,sigma = ",imgMean,imgStd)
     imgarrayMask = numpy.ma.masked_greater(locarray,imgMean+1*imgStd)
     countsNew = (imgarrayMask.mask==False).sum()
     countsOld = -1
@@ -548,7 +548,7 @@ def calcStarting(imgarray,nsigma=1.5,printLevel=0,debugFlag=False):
         imgMean = imgarrayMask.mean()
         imgStd = imgarrayMask.std()
         if printLevel>=2:
-            print "calcStarting: mean,sigma,counts = ",imgMean,imgStd,countsOld
+            print("calcStarting: mean,sigma,counts = ",imgMean,imgStd,countsOld)
         imgarrayMask = numpy.ma.masked_greater(locarray,imgMean+nsigma*imgStd)
         countsNew = (imgarrayMask.mask==False).sum()
 

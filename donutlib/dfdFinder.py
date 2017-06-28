@@ -11,7 +11,7 @@ def block_view(A, block= (8, 8)):
     compatible with the shape of A."""
     # simple shape and strides computations may seem at first strange
     # unless one is able to recognize the 'tuple additions' involved ;-)
-    shape= (A.shape[0]/ block[0], A.shape[1]/ block[1])+ block
+    shape= (A.shape[0]// block[0], A.shape[1]// block[1])+ block
     strides= (block[0]* A.strides[0], block[1]* A.strides[1])+ A.strides
     return ast(A, shape= shape, strides= strides)
 
@@ -26,7 +26,7 @@ def calcSky(imgarray,nsigma=1.5,debugFlag=False):
     imgMean = imgarray.mean()
     imgStd = imgarray.std()
     if debugFlag:
-        print "calcSky: mean,sigma = ",imgMean,imgStd
+        print("calcSky: mean,sigma = ",imgMean,imgStd)
     imgarrayMask = numpy.ma.masked_greater(imgarray,imgMean+1*imgStd)
     countsNew = (imgarrayMask.mask==False).sum()
     countsOld = -1
@@ -40,7 +40,7 @@ def calcSky(imgarray,nsigma=1.5,debugFlag=False):
         imgMean = imgarrayMask.mean()
         imgStd = imgarrayMask.std()
         if debugFlag:
-            print "calcSky: mean,sigma,counts = ",imgMean,imgStd,countsOld
+            print("calcSky: mean,sigma,counts = ",imgMean,imgStd,countsOld)
         imgarrayMask = numpy.ma.masked_greater(imgarray,imgMean+nsigma*imgStd)
         countsNew = (imgarrayMask.mask==False).sum()
                 
@@ -59,7 +59,7 @@ def findDonuts(dataAmp,xOffset,inputDict,extName):
     fluxMaxCut = inputDict["fluxMaxCut"]
     npixelsMinCut = inputDict["npixelsMinCut"]
     npixelsMaxCut = inputDict["npixelsMaxCut"]
-    nDonutWanted = inputDict["nDonutWanted"]/2    # divide by 2 for 2 amplifiers
+    nDonutWanted = inputDict["nDonutWanted"]//2    # divide by 2 for 2 amplifiers
     ellipCut = inputDict["ellipCut"]
 
     # info about CCDs
@@ -110,8 +110,8 @@ def findDonuts(dataAmp,xOffset,inputDict,extName):
 
     # get the sorted indices as a tuple of iy,ix 'es
     ixSort = numpy.mod(indSort,nx).tolist()
-    iySort = ((indSort - ixSort)/nx).tolist()
-    iyxSort = zip(iySort,ixSort)
+    iySort = ((indSort - ixSort)//nx).tolist()
+    iyxSort = list(zip(iySort,ixSort))
 
     # now loop over pixels in sorted order
     # but only look at those above the threshold
@@ -169,8 +169,8 @@ def findDonuts(dataAmp,xOffset,inputDict,extName):
                 # check if this guy passes the cuts
 
                 # calculate the pixels
-                ixDonut = int(xCentroid * nBlock) + nBlock/2 + xOffset
-                iyDonut = int(yCentroid * nBlock) + nBlock/2 
+                ixDonut = int(xCentroid * nBlock) + nBlock//2 + xOffset
+                iyDonut = int(yCentroid * nBlock) + nBlock//2 
 
                 # calculate rdecam
                 xdecam,ydecam = dinfo.getPosition(extName,ixDonut,iyDonut)
@@ -241,7 +241,7 @@ def dfdFinder(hdulist,extName,inputDict={}):
     donutListB = findDonuts(dataAmpB,56,defaultDict,extName)
 
     # done
-    print "dfdFinder took ",time.clock()-startingTime," seconds"
+    print("dfdFinder took ",time.clock()-startingTime," seconds")
 
     donutList = donutListA + donutListB
     return donutList
@@ -263,6 +263,6 @@ def listToregion(dList,regionFileName="temp.reg"):
             iy = donutDict["y"] + 51
             regf.write("image; ellipse(%d,%d,%.5f,%.5f,%.5f)\n" % (ix,iy,10.0,10.0,0.))
         except:
-            print donutDict
+            print(donutDict)
 
     regf.close()

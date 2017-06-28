@@ -6,13 +6,13 @@ import copy
 import statsmodels.api as sm
 import os.path
 from donutlib.PointMesh import PointMesh
-from decamutil import decaminfo 
-from decamutil import mosaicinfo
+from .decamutil import decaminfo 
+from .decamutil import mosaicinfo
 try:
     from ROOT import TTree, TFile, gROOT, TCanvas, gStyle, TGraph2D, TGraphErrors, SetOwnership
-    from hplotlib import hfillhist
+    from .hplotlib import hfillhist
 except:
-    print "donutana: could not import ROOT"
+    print("donutana: could not import ROOT")
 import pdb
 
 class donutana(object):
@@ -91,7 +91,7 @@ class donutana(object):
         if self.paramDict["sensorSet"] == "ScienceOnly" or self.paramDict["sensorSet"] == "FandAOnly" or self.paramDict["sensorSet"] == "PlusOnly" or self.paramDict["sensorSet"] == "MinusOnly"  :
             self.infoObj = decaminfo()
         else:
-            print "HEY FOOL, set either ScienceOnly or FandAOnly !!!!"
+            print("HEY FOOL, set either ScienceOnly or FandAOnly !!!!")
             exit()
             self.infoObj = mosaicinfo()
             
@@ -111,30 +111,30 @@ class donutana(object):
 
         # build list of ccds - options are FandAOnly, ScienceOnly, All
         if self.paramDict["sensorSet"] == "FandAOnly" :
-            for ccd in self.info.keys():
+            for ccd in list(self.info.keys()):
                 ccdinfo = self.info[ccd]
                 if  ccdinfo["FAflag"]:
                     self.coordList.append(ccd)
         elif self.paramDict["sensorSet"] == "PlusOnly" :
-            for ccd in self.info.keys():
+            for ccd in list(self.info.keys()):
                 ccdinfo = self.info[ccd]
                 if  ccdinfo["FAflag"] and ccdinfo["Offset"] == 1500.0:
                     self.coordList.append(ccd)
         elif self.paramDict["sensorSet"] == "MinusOnly" :
-            for ccd in self.info.keys():
+            for ccd in list(self.info.keys()):
                 ccdinfo = self.info[ccd]
                 if  ccdinfo["FAflag"] and ccdinfo["Offset"] == -1500.0:
                     self.coordList.append(ccd)
         elif self.paramDict["sensorSet"] == "ScienceOnly":
-            for ccd in self.info.keys():
+            for ccd in list(self.info.keys()):
                 ccdinfo = self.info[ccd]
                 if  not ccdinfo["FAflag"]:
                     self.coordList.append(ccd)
         elif  self.paramDict["sensorSet"] == "Both":
-            for ccd in self.info.keys():
+            for ccd in list(self.info.keys()):
                 self.coordList.append(ccd)
         else:
-            print "donutana.py: HEY FOOL, you have to specify FandAOnly, ScienceOnly, or Both"
+            print("donutana.py: HEY FOOL, you have to specify FandAOnly, ScienceOnly, or Both")
             exit()
 
         # reset doRzero based on sensorSet - why do this?
@@ -176,7 +176,7 @@ class donutana(object):
             #    # fill gridDict
             #    self.gridDict[ccd] = [self.paramDict["nInterpGrid"],ylo,yhi,self.paramDict["nInterpGrid"],xlo,xhi]
 
-
+            
         # also keep a dictionary to the meshes
         self.meshDict = {}
 
@@ -228,7 +228,7 @@ class donutana(object):
             bigDict["nele"] = {}
 
         # make a blank list for each Coord for each of the Pnts dicts
-        for key in bigDict.keys():
+        for key in list(bigDict.keys()):
             for coord in self.coordList:
                 bigDict[key][coord] = []
                         
@@ -346,7 +346,7 @@ class donutana(object):
                     good = True
 
             # good Donut
-            if good and bigDict["z4"].has_key(extname):
+            if good and extname in bigDict["z4"]:
                 xval,yval = self.infoObj.getPosition(extname,ix,iy)
                 # convert from z4 to dz
                 dz = zern4 * self.paramDict["z4Conversion"]
@@ -377,14 +377,14 @@ class donutana(object):
                     pntsDict["nele"] = [xval,yval,nele,wgt]
 
                 # now enter these points into bigDict
-                for key in bigDict.keys():
+                for key in list(bigDict.keys()):
                     bigDict[key][extname].append(pntsDict[key])
                     
 
 
         # convert all the lists to numpy arrays
         allPointsDict = {}
-        for key in bigDict.keys():
+        for key in list(bigDict.keys()):
             allPointsDict[key] = {}
             for coord in self.coordList:
                 allPointsDict[key][coord] = numpy.array(bigDict[key][coord])
@@ -399,7 +399,7 @@ class donutana(object):
 
         # build meshes for all keys present
         allMeshDict = {}
-        for key in allPointsDict.keys():
+        for key in list(allPointsDict.keys()):
 
             thePoints = allPointsDict[key]
             theMesh = PointMesh(self.coordList,self.gridDict,pointsArray=thePoints,myMethod=myMethod,methodVal=methodVal)
@@ -411,7 +411,6 @@ class donutana(object):
     def analyzeDonuts(self,donutData,extraCut="",doCull=False,cullCut=0.90):
         """ analyzeDonuts takes a list of dictionaries with donut information as input, containing the results of the donut fits
         """
-        
         dictOfMeshes = self.makeMeshes(donutData,extraCut=extraCut)
         donutDict = self.analyzeMeshes(dictOfMeshes,doCull=doCull,cullCut=cullCut)
         return donutDict
@@ -424,10 +423,9 @@ class donutana(object):
            this fits to zDiff = dictOfMeshes - interpolation of self.meshDict
            ie. the sign is defined as (other guy) - (me)
         """
-
         # deepcopy the meshes! no longer adjusts in place  
         dictOfMeshesCopy = {}
-        for key in dictOfMeshes.keys():
+        for key in list(dictOfMeshes.keys()):
             theMesh = copy.deepcopy(dictOfMeshes[key])
             dictOfMeshesCopy[key] = theMesh
 
@@ -439,12 +437,13 @@ class donutana(object):
         dictOfResults = {}
 
         # loop over keys, fitting References
-        for key in dictOfMeshesCopy.keys():
+        for key in list(dictOfMeshesCopy.keys()):
 
             # some special cases
             resultsKeyName = "%sResultDict" % (key.replace("Mesh",""))
             meshName = key
             if key=="z4Mesh":
+                print("Python 3 debugging: %r"%self.meshDict)
                 dictOfResults[resultsKeyName] = self.fitToRefMesh(self.meshDict[meshName],dictOfMeshesCopy[meshName],self.zangleconv)
             elif key=="rzeroMesh":
                 dictOfResults[resultsKeyName] = self.analyzeRzero(dictOfMeshesCopy["rzeroMesh"],dictOfMeshesCopy["chi2Mesh"],dictOfMeshesCopy["neleMesh"])
@@ -454,7 +453,7 @@ class donutana(object):
                 continue
             else:
                 # check that meshDict has the appropriate mesh
-                if self.meshDict.has_key(meshName):
+                if meshName in self.meshDict:
                     dictOfResults[resultsKeyName] = self.fitToRefMesh(self.meshDict[meshName],dictOfMeshesCopy[meshName])
 
         # if we want to cull, cull and refit!
@@ -464,7 +463,7 @@ class donutana(object):
             # for each point, and cull at a product of cullCut
             self.cullAllMeshes(dictOfMeshesCopy,cullCut=cullCut)
 
-            for key in dictOfMeshesCopy.keys():
+            for key in list(dictOfMeshesCopy.keys()):
 
                 # some special cases
                 resultsKeyName = "%sResultDict" % (key.replace("Mesh",""))
@@ -479,7 +478,7 @@ class donutana(object):
                     continue
                 else:
                     # check that meshDict has the appropriate mesh
-                    if self.meshDict.has_key(meshName):
+                    if meshName in self.meshDict:
                         dictOfResults[resultsKeyName] = self.fitToRefMesh(self.meshDict[meshName],dictOfMeshesCopy[meshName])
             
         # analyze this data and extract the hexapod coefficients
@@ -491,17 +490,17 @@ class donutana(object):
             goodCalc = True
 
         # add the individual fit results here too
-        for key in dictOfResults.keys():
+        for key in list(dictOfResults.keys()):
             donutDict[key] = dictOfResults[key]
 
         # and add the meshes too
-        for key in dictOfMeshesCopy.keys():
+        for key in list(dictOfMeshesCopy.keys()):
             donutDict[key] = dictOfMeshesCopy[key]
 
 
         # make a Canvas of plots for this image
         # plot Histogram of Difference before fit, after fit, and after fit vs. X,Y position
-        if self.paramDict["histFlag"] and dictOfResults["z4ResultDict"].has_key("deltaArrayBefore") and goodCalc:
+        if self.paramDict["histFlag"] and "deltaArrayBefore" in dictOfResults["z4ResultDict"] and goodCalc:
 
             # setup plots
             gStyle.SetStatH(0.32)
@@ -515,7 +514,7 @@ class donutana(object):
             # loop over results, making plots for each
             nplots = 0
             plotDict = {} 
-            for key in dictOfResults.keys():
+            for key in list(dictOfResults.keys()):
                 theResultDict = dictOfResults[key]
 
                 keyId = key.replace("ResultDict","")
@@ -552,7 +551,7 @@ class donutana(object):
             jZ = 0
             for iZ in range(4,15+1):
                 key = "z%d" % (iZ)
-                if plotDict.has_key(key):
+                if key in plotDict:
                     jZ = jZ + 1
 
                     plotList = plotDict[key]
@@ -571,7 +570,7 @@ class donutana(object):
                     plotList[3].Draw("zcolpcol")
 
             # set it so that python doesn't own these ROOT object
-            for key in plotDict.keys():
+            for key in list(plotDict.keys()):
                 for plot in plotDict[key]:
                     SetOwnership(plot,False)
 
@@ -689,7 +688,7 @@ class donutana(object):
             donutDict["donut_summary"] = donutSummary
 
         except:
-            print "donutana: Not enough information for calcHexapod"
+            print("donutana: Not enough information for calcHexapod")
             donutDict = {}
 
         return donutDict
@@ -764,7 +763,7 @@ class donutana(object):
             plotList = []
             for iZ in range(4,15+1):
                 key = "z%dMesh" % (iZ)
-                if dictOfMeshes.has_key(key):
+                if key in dictOfMeshes:
                     thisMesh = dictOfMeshes[key]
                     nMADArr = thisMesh.calcWgtnMAD(kNN=kNN,nMADCut=nMADCut)
 
@@ -787,7 +786,7 @@ class donutana(object):
             outDict["canvas"] = canvas
 
         else:
-            print "donutana Error: bad type ",type," in calcMeshWgts"
+            print("donutana Error: bad type ",type," in calcMeshWgts")
 
         return outDict
 
@@ -800,11 +799,11 @@ class donutana(object):
 
         # loop over the Coords and coalesce the Wgts of the points
 
-        aMesh = dictOfMeshes[dictOfMeshes.keys()[0]]   # this is just the first mesh
+        aMesh = dictOfMeshes[list(dictOfMeshes.keys())[0]]   # this is just the first mesh
         dictOfWgts = {}
         for coord in aMesh.coordList:
 
-            if aMesh.pointsArray.has_key(coord):
+            if coord in aMesh.pointsArray:
                 npts = aMesh.pointsArray[coord].shape[0]
                 if npts>0 :
                     thisWgt = numpy.ones(npts)
@@ -842,7 +841,7 @@ class donutana(object):
             const = {"extra":-2.891,"intra":-2.850}
             slope = {"extra":1.215,"intra":1.191}
 
-            for focal in bothCoords.keys():
+            for focal in list(bothCoords.keys()):
                 coords = bothCoords[focal]
                 rzeroAllPntsL = []
                 neleAllPntsL = []

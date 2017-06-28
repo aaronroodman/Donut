@@ -3,7 +3,6 @@
 # multiple "Coordinate" systems are possible, each with separate
 # interpolation grids
 #
-
 import numpy
 import scipy
 import pandas as pd
@@ -18,7 +17,7 @@ import bisect
 try:
     from scipy import stats
 except:
-    print "PointMesh: Could not import scipy.stats"
+    print("PointMesh: Could not import scipy.stats")
     
 import numpy.lib.index_tricks as itricks
 import statsmodels.api as sm
@@ -27,12 +26,12 @@ try:
     from mpl_toolkits.mplot3d import axes3d
     from matplotlib import pyplot as plt
 except:
-    print "PointMesh: Could not load matplotlib"
+    print("PointMesh: Could not load matplotlib")
     
 try:
     from ROOT import TStyle,gStyle,TCanvas,TGraph2D
 except:
-    print "PointMesh: Could not load ROOT"
+    print("PointMesh: Could not load ROOT")
 
 import pdb
 
@@ -56,6 +55,7 @@ class PointMesh(object):
         # convert the raw pandas format to a dictionary keyed by sensor name
         # containing a numpy array of x,y,z,w
         self.pointsArray = {}
+        dataPoints['Sensor'] = dataPoints['Sensor'].str.decode('utf-8')
         for iCoord in self.coordList:
             selone = (dataPoints['Sensor']==iCoord)
             xarr = numpy.array(dataPoints[selone]['x'].tolist())
@@ -105,7 +105,7 @@ class PointMesh(object):
         elif pointsFile!=None:
             self.readPointsFromFile(pointsFile)
         else:
-            print "PointMesh: no input points"
+            print("PointMesh: no input points")
 
         # construct the interpolation grid for each coordinate system
         self.myMethod = myMethod
@@ -184,7 +184,7 @@ class PointMesh(object):
 
             data = self.pointsArray[iCoord]
             if self.debugFlag:
-                print "PointMesh: At ",iCoord,"we have ",data.shape[0]," points"
+                print("PointMesh: At ",iCoord,"we have ",data.shape[0]," points")
             npts = data.shape[0]
 
             # check number of points
@@ -305,7 +305,7 @@ class PointMesh(object):
                 return Z
 
         elif self.myMethod == "idw":
-            if self.interpIDW.has_key(iCoord) and self.interpIDW[iCoord] != None:
+            if iCoord in self.interpIDW and self.interpIDW[iCoord] != None:
                 return self.interpIDW[iCoord].ev(x,y)
             else:
                 Z = numpy.zeros(x.shape)
@@ -352,7 +352,7 @@ class PointMesh(object):
         for iCoord in self.coordList:
 
             # loop over points in otherMesh
-            if otherMesh.pointsArray.has_key(iCoord):
+            if iCoord in otherMesh.pointsArray:
                 otherData = otherMesh.pointsArray[iCoord]
                 if otherData.shape[0]>0:
                     xOtherData = otherData[:,0]
@@ -373,7 +373,7 @@ class PointMesh(object):
 
         nstart = 0
         for iCoord in self.coordList:
-            if otherMesh.pointsArray.has_key(iCoord):
+            if iCoord in otherMesh.pointsArray:
                 npts = otherMesh.pointsArray[iCoord].shape[0]
                 if npts>0 :
                     zDiff[nstart:nstart+npts] = otherMesh.pointsArray[iCoord][:,2] - interpData[iCoord]
@@ -400,26 +400,26 @@ class PointMesh(object):
             try:
                 results = linearModel.fit()
             except:
-                print "PointMesh.py:  fit failed"
+                print("PointMesh.py:  fit failed")
                 results = None
                 
             if self.debugFlag:
-                print "PrintMesh: ThetaX = ",results.params[0]," +- ",results.bse[0]
-                print "PrintMesh: ThetaY = ",results.params[1]," +- ",results.bse[1]
-                print "PrintMesh: DeltaZ = ",results.params[2]," +- ",results.bse[2]
+                print("PrintMesh: ThetaX = ",results.params[0]," +- ",results.bse[0])
+                print("PrintMesh: ThetaY = ",results.params[1]," +- ",results.bse[1])
+                print("PrintMesh: DeltaZ = ",results.params[2]," +- ",results.bse[2])
 
             if method=="RLM" and results!=None :
                 mean = (results.resid*results.weights).sum()/results.weights.sum()
                 rms = numpy.sqrt( (numpy.power(results.resid-mean,2)*results.weights).sum() / results.weights.sum()  )
                 if self.debugFlag:
-                    print "PointMesh: Fraction of points used = ",results.weights.sum()/results.nobs
-                    print "PointMesh: Mean, RMS with weights = ",mean,rms
+                    print("PointMesh: Fraction of points used = ",results.weights.sum()/results.nobs)
+                    print("PointMesh: Mean, RMS with weights = ",mean,rms)
 
             # load results.weights into otherMesh's weights
             if results!=None:
                 nstart = 0
                 for iCoord in otherMesh.coordList:
-                    if otherMesh.pointsArray.has_key(iCoord):
+                    if iCoord in otherMesh.pointsArray:
                         npts = otherMesh.pointsArray[iCoord].shape[0]
                         if npts>0:
                             otherMesh.pointsArray[iCoord][:,3] = results.weights[nstart:nstart+npts]
@@ -724,7 +724,7 @@ class PointMesh(object):
         if extname==None:
             return     'x=%1.4f, y=%1.4f               '%(x, y)
         else:
-            if self.interpEdges.has_key(extname):
+            if extname in self.interpEdges:
                 xEdges = self.interpEdges[extname][0][0,:]
                 yEdges = self.interpEdges[extname][1][:,0]
             else:
@@ -734,13 +734,13 @@ class PointMesh(object):
             indY = bisect.bisect_left(yEdges,y)-1
             indX = bisect.bisect_left(xEdges,x)-1
 
-        if self.interpValues.has_key(extname):
+        if extname in self.interpValues:
             shape = self.interpValues[extname].shape
             if indX>=0 and indX<shape[1] and indY>=0 and indY<shape[0]:
                 z = self.interpValues[extname][indY,indX]
                 return 'x=%1.4f, y=%1.4f, z=%1.4f, %s'%(x, y, z,extname)
             else:
-                print "problem: ",extname,x,y
+                print("problem: ",extname,x,y)
                 return 'x=%1.4f, y=%1.4f               '%(x, y)
         else:
             return     'x=%1.4f, y=%1.4f               '%(x, y)
@@ -839,7 +839,7 @@ class PointMesh(object):
                     distance = numpy.abs( self.pointsArray[iCoord][:,2] - self.doInterp(iCoord,self.pointsArray[iCoord][:,0],self.pointsArray[iCoord][:,1]) )
                     self.pointsArray[iCoord][:,3] = numpy.where(distance<maxdist,1.0,0.0)
             except:
-                print "PointMesh: error in calcWgtDtoInterp"
+                print("PointMesh: error in calcWgtDtoInterp")
 
 
 
@@ -856,7 +856,7 @@ class PointMesh(object):
                     nsigmaArray = numpy.abs(self.pointsArray[iCoord][:,2] - self.interpTMean[iCoord])/self.interpTStd[iCoord]
                     self.pointsArray[iCoord][:,3] = numpy.where(nsigmaArray<nsigma,1.0,0.0)
             except:
-                print "PointMesh: error in calcWgtNSig"
+                print("PointMesh: error in calcWgtNSig")
 
 
     def calcWgtnMAD(self,kNN=100,nMADCut=4.0):
@@ -902,7 +902,7 @@ class PointMesh(object):
         and remake the interpolation
         """
         for iCoord in self.coordList:
-            if self.pointsArray.has_key(iCoord):
+            if iCoord in self.pointsArray:
                 origArray = self.pointsArray[iCoord]
                 npoints = origArray.shape[0]
                 newList = []
@@ -960,7 +960,7 @@ class PointMesh(object):
                 wList.append(point[3])
         
         # output python dictionary of points to text file
-        dataArray = numpy.array(zip(sensorList,xList,yList,zList,wList),dtype=[('Sensor','|S3'),('x','float'),('y','float'),('z','float'),('w','float')])
+        dataArray = numpy.array(list(zip(sensorList,xList,yList,zList,wList)),dtype=[('Sensor','|S3'),('x','float'),('y','float'),('z','float'),('w','float')])
         numpy.savetxt(fileName,dataArray,fmt=("%3.3s","%12.5f","%12.5f","%12.5f","%12.5f"))
 
 

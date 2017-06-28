@@ -17,19 +17,39 @@ ifeq ($(OS), Darwin)
 	SW = swig
 
 else
-	#CFLAGS = -Wall -ansi -g -fPIC
-# standard:	CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC
-# new, faster, use in queue: CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC  ### but is now failing!!
-# for interactive making use: CFLAGS =  -ansi -O3  -m64  -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2   -fPIC
-	CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC	
-	#CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
-	LD = g++
-	LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(XRAY_SOFTDIR)/cfitsio/3.37/lib' -Wl,-rpath,'$(XRAY_SOFTDIR)/fftw/3.3.2/lib'
+	ifneq (,$(findstring cosmos,$(HOSTNAME)))
+#		CFLAGS = -Wall -ansi -g -fPIC
+# 		standard:	CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC
+# 		new, faster, use in queue: CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC  ### but is now failing!!
+# 		for interactive making use: CFLAGS =  -ansi -O3  -m64  -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2   -fPIC
+		CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC	
+#		CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
+		LD = g++
+		LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(CFITSIO_PRODUCT)/lib' 
+# -Wl,-rpath,'$(XRAY_SOFTDIR)/fftw/3.3.2/lib'
 
-	LIBS = -L$(XRAY_SOFTDIR)/cfitsio/3.37/lib -L$(XRAY_SOFTDIR)/fftw/3.3.2/lib  -L/usr/lib64 -L$(ANACONDA)/lib/python2.7 -lcfitsio -lfftw3 -lm
-	INCS = -I$(XRAY_SOFTDIR)/cfitsio/3.37/include -I$(XRAY_SOFTDIR)/fftw/3.3.2/include -I$(ANACONDA)/include/python2.7  
+		LIBS = -L$(CFITSIO_PRODUCT)/lib  -L/usr/lib64 -lcfitsio -lfftw3 -lm
+		ifneq (,$(findstring eups_dos,$(EUPS_PATH)))
+			INCS = -I$(CFITSIO_PRODUCT)/include -I/n/des/desi/software/products/python-3.5.0.Linux64/include/python3.5m/  
+		else
+			INCS = -I$(CFITSIO_PRODUCT)/include -I/usr/include/python2.7  
+		endif
+		SW = swig
+	else
+#		CFLAGS = -Wall -ansi -g -fPIC
+# 		standard:	CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC
+# 		new, faster, use in queue: CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC  ### but is now failing!!
+# 		for interactive making use: CFLAGS =  -ansi -O3  -m64  -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2   -fPIC
+		CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC	
+#		CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
+		LD = g++
+		LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(XRAY_SOFTDIR)/cfitsio/3.37/lib' -Wl,-rpath,'$(XRAY_SOFTDIR)/fftw/3.3.2/lib'
 
-	SW = $(XRAY_SOFTDIR)/swig/2.0.4/bin/swig
+		LIBS = -L$(XRAY_SOFTDIR)/cfitsio/3.37/lib -L$(XRAY_SOFTDIR)/fftw/3.3.2/lib  -L/usr/lib64 -L$(ANACONDA)/lib/python2.7 -lcfitsio -lfftw3 -lm
+		INCS = -I$(XRAY_SOFTDIR)/cfitsio/3.37/include -I$(XRAY_SOFTDIR)/fftw/3.3.2/include -I$(ANACONDA)/include/python2.7  
+
+		SW = $(XRAY_SOFTDIR)/swig/2.0.4/bin/swig
+	endif
 endif
 
 all: donutengine
