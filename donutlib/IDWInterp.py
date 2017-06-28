@@ -40,7 +40,7 @@ class IDWInterp(object):
         self.X = X.copy()
         self.Y = Y.copy()
         self.Z = Z.copy()
-        xyArr = numpy.array(zip(self.X,self.Y))
+        xyArr = numpy.array(list(zip(self.X,self.Y)))
 
         # make the kNN tree
         self.kdtree= cKDTree(xyArr)
@@ -48,7 +48,7 @@ class IDWInterp(object):
         # kNN to use
         if len(self.Z)<kNN:
             self.usekNN = len(self.Z)
-            print "IDWInterp: asked for %d kNN, using %d" % (self.kNN,self.usekNN)
+            print("IDWInterp: asked for %d kNN, using %d" % (self.kNN,self.usekNN))
         else:
             self.usekNN = self.kNN
 
@@ -56,7 +56,7 @@ class IDWInterp(object):
         """ evaluate the interpolant
         """
         # find the nearest neighbors
-        xyArr = numpy.array(zip(X,Y))
+        xyArr = numpy.array(list(zip(X,Y)))
         dNeighbors,indexNeighbors = self.kdtree.query(xyArr,self.usekNN)
 
         #

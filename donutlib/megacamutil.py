@@ -122,7 +122,7 @@ class megacaminfo(object):
         """ given x,y position on the focal plane, return the sensor name
         or None, if not interior to a chip
         """
-        for ext in self.infoDict.keys():
+        for ext in list(self.infoDict.keys()):
             ccdinfo = self.infoDict[ext]
             # is this x,y inside this chip?
             nxdif = numpy.abs( (xPos - ccdinfo["xCenter"]) / self.mmperpixel )

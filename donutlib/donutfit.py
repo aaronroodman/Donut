@@ -1,3 +1,4 @@
+from __future__ import print_function
 import time
 import os
 import numpy
@@ -7,6 +8,7 @@ from collections import OrderedDict
 from astropy.io import fits as pyfits
 from array import array
 import pdb
+import ctypes
 
 import ROOT
 ROOT.PyConfig.IgnoreCommandLineOptions = True
@@ -56,7 +58,7 @@ class donutfit(object):
 
         # arglist is for the parameters in Minuit commands
         arglist = array( 'd', 10*[0.] )
-        ierflg = ROOT.Long(1982)
+        ierflg =ctypes.c_int(1982)#L ROOT.Long(1982) 
 
         # set the definition of 1sigma 
         arglist[0] = 1.0
@@ -119,7 +121,7 @@ class donutfit(object):
 
         # if desired print dict
         if self.paramDict["printLevel"]>=2:
-            print self.fitDict
+            print(self.fitDict)
         
         # load image either from a file or from an input array
         if self.fitDict["inputImageArray"] ==None:
@@ -134,7 +136,7 @@ class donutfit(object):
             self.inputHeader = hdulist[0].header
 
             # get the extension name from the header
-            if self.inputHeader.keys().count("EXTNAME")>0:
+            if list(self.inputHeader.keys()).count("EXTNAME")>0:
                 extname = self.inputHeader["EXTNAME"]
                 if extname == "":
                     extname = 'None'
@@ -142,12 +144,12 @@ class donutfit(object):
                 extname = 'None'
 
             # also get the IX,IY values from the header
-            if self.inputHeader.keys().count("IX")>0:
+            if list(self.inputHeader.keys()).count("IX")>0:
                 ix = self.inputHeader["IX"]
             else:
                 ix = 0.
                 
-            if self.inputHeader.keys().count("IY")>0:
+            if list(self.inputHeader.keys()).count("IY")>0:
                 iy = self.inputHeader["IY"]
             else:
                 iy = 0.
@@ -240,7 +242,7 @@ class donutfit(object):
             # temporary - increase rzero limit to 0.50
         inputrzero = self.fitDict["inputrzero"]
         if inputrzero == None:
-            if self.inputHeader.keys().count("RZEROIN")>0:
+            if list(self.inputHeader.keys()).count("RZEROIN")>0:
                 inputrzero = self.inputHeader["RZEROIN"]
             else:
                 inputrzero = 0.125
@@ -303,7 +305,7 @@ class donutfit(object):
 
         # printout
         if self.paramDict["printLevel"]>=2:
-            print 'donutfit: Chi2 = ',chisquared
+            print('donutfit: Chi2 = ',chisquared)
 
         # save parameters for next iteration
         self.gFitFunc.savePar()
@@ -333,7 +335,7 @@ class donutfit(object):
         
         # arglist is for the parameters in Minuit commands
         arglist = array( 'd', 10*[0.] )
-        ierflg = ROOT.Long(1982)
+        ierflg = ctypes.c_int(1982) #L ROOT.Long
 
         # tell Minuit we have derivatives, don't check anymore as long as rzero is fixed
         if self.paramStatusArray[self.gFitFunc.ipar_rzero]==1 :
@@ -361,66 +363,66 @@ class donutfit(object):
         firsttime = time.clock()
         self.deltatime = firsttime - self.startingtime
         if self.paramDict["printLevel"]>=1:
-            print 'donutfit: Elapsed time fit = ',self.deltatime
+            print('donutfit: Elapsed time fit = ',self.deltatime)
 
         # number of calls
         if self.paramDict["printLevel"]>=1:
-            print 'donutfit: Number of CalcAll calls = ',self.gFitFunc.nCallsCalcAll
-            print 'donutfit: Number of CalcDerivative calls = ',self.gFitFunc.nCallsCalcDerivative
+            print('donutfit: Number of CalcAll calls = ',self.gFitFunc.nCallsCalcAll)
+            print('donutfit: Number of CalcDerivative calls = ',self.gFitFunc.nCallsCalcDerivative)
 
     def outFit(self,postfix,identifier=""):
 
         # get more fit details from MINUIT
-        amin, edm, errdef = ROOT.Double(0.18), ROOT.Double(0.19), ROOT.Double(0.20)
-        nvpar, nparx, icstat = ROOT.Long(1983), ROOT.Long(1984), ROOT.Long(1985)
+        amin, edm, errdef = ctypes.c_double(0.18), ctypes.c_double(0.19), ctypes.c_double(0.20)
+        nvpar, nparx, icstat = ctypes.c_int(1983), ctypes.c_int(1984), ctypes.c_int(1985)
         self.gMinuit.mnstat( amin, edm, errdef, nvpar, nparx, icstat )
-        dof = pow(self.gFitFunc._nPixels,2) - nvpar
+        dof = pow(self.gFitFunc._nPixels,2) - nvpar.value
         if self.paramDict["printLevel"]>=1:
-            mytxt = "amin = %.3f, edm = %.3f,   effdef = %.3f,   nvpar = %.3f,  nparx = %.3f, icstat = %.3f " % (amin,edm,errdef,nvpar,nparx,icstat)
-            print 'donutfit: ',mytxt
+            mytxt = "amin = %.3f, edm = %.3f,   effdef = %.3f,   nvpar = %.3f,  nparx = %.3f, icstat = %.3f " % (amin.value,edm.value,errdef.value,nvpar.value,nparx.value,icstat.value)   
+            print('donutfit: ',mytxt)
 
         # get fit values and errors
-        aVal = ROOT.Double(0.21)
-        errVal = ROOT.Double(0.22)
+        aVal = ctypes.c_double(0.21)
+        errVal = ctypes.c_double(0.22)
         self.paramArray = numpy.zeros(self.gFitFunc.npar)
         self.paramErrArray = numpy.zeros(self.gFitFunc.npar)
         for ipar in range(self.gFitFunc.npar):
             self.gMinuit.GetParameter(ipar,aVal,errVal)
-            self.paramArray[ipar] = aVal
-            if errVal < 1e9 :
-                self.paramErrArray[ipar] = errVal
+            self.paramArray[ipar] = aVal.value
+            if errVal.value < 1e9 :
+                self.paramErrArray[ipar] = errVal.value
             else:
                 self.paramErrArray[ipar] = 0.0
 
         # printout parameters in a convenient format
         if self.paramDict["printLevel"]>=1:
-            print """ "[ """,
+            print(""" "[ """, end=' ')
             for ipar in range(self.gFitFunc.ipar_ZernikeFirst,self.gFitFunc.ipar_ZernikeLast):
-                print self.paramArray[ipar],",",
-            print self.paramArray[self.gFitFunc.ipar_ZernikeLast],""" ]" """
+                print(self.paramArray[ipar],",", end=' ')
+            print(self.paramArray[self.gFitFunc.ipar_ZernikeLast],""" ]" """)
 
         #copy input header information from input file here except for Standard header stuff
         stdHeaderDict= {'SIMPLE':0,'BITPIX':0,'NAXIS':0,'NAXIS1':0,'NAXIS2':0,'EXTEND':0}
         try:
-            if sys.version_info.minor>=7:
+            if sys.version_info.minor>=7 or sys.version_info.major >= 3:
                 outputHeaderDict = OrderedDict()
         except:
             outputHeaderDict = {}
 
-        for key in self.inputHeader.keys():
-            if not stdHeaderDict.keys().count(key)>0:
+        for key in list(self.inputHeader.keys()):
+            if not list(stdHeaderDict.keys()).count(key)>0:
                 outputHeaderDict[key] = self.inputHeader[key]
 
         # fill output Dictionary
         try:
-            if sys.version_info.minor>=7:
+            if sys.version_info.minor>=7 or sys.version_info.major >= 3:
                 outputDict = OrderedDict()
         except:
             outputDict = {}
 
-        outputDict["CHI2"] = float(amin)
+        outputDict["CHI2"] = float(amin.value)
         outputDict["DOF"] = int(dof)
-        outputDict["FITSTAT"] = int(icstat)
+        outputDict["FITSTAT"] = int(icstat.value)
         outputDict["CLKTIME"] = self.deltatime
         outputDict["NCALCALL"] = self.gFitFunc.nCallsCalcAll
         outputDict["NCALCDER"] = self.gFitFunc.nCallsCalcDerivative

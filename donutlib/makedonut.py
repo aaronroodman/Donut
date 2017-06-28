@@ -62,7 +62,7 @@ class makedonut(object):
 
         # check parameters are ok
         if self.paramDict["nbin"] != self.paramDict["nPixels"]*self.paramDict["pixelOverSample"]:
-            print "makedonut:  nbin must = nPixels * pixelOverSample !!!"
+            print("makedonut:  nbin must = nPixels * pixelOverSample !!!")
             sys.exit(1)
 
         # also require that _Lu > 2R, ie. that pupil fits in pupil plane
@@ -72,8 +72,8 @@ class makedonut(object):
         F = 2.9  # hardcode for DECam for now
         pixelSize = 15.e-6 
         if self.paramDict["pixelOverSample"] * self.paramDict["scaleFactor"] * (self.paramDict["waveLength"] * F / pixelSize) < 1. :
-            print "makedonut:  ERROR pupil doesn't fit!!!"
-            print "            value = ",self.paramDict["pixelOverSample"] * self.paramDict["scaleFactor"] * (self.paramDict["waveLength"] * F / pixelSize)
+            print("makedonut:  ERROR pupil doesn't fit!!!")
+            print("            value = ",self.paramDict["pixelOverSample"] * self.paramDict["scaleFactor"] * (self.paramDict["waveLength"] * F / pixelSize))
             #sys.exit(2)
 
         # for WFM, need to turn gridCalcMode to False for donutengine
@@ -146,7 +146,7 @@ class makedonut(object):
                     aaFile = aFile
 
                 ZernCoeff = __import__(aaFile).ZernCoeff
-                print ZernCoeff
+                print(ZernCoeff)
 
                 for iZ in range(self.gFitFunc.nZernikeSize):
                     par[self.gFitFunc.ipar_ZernikeFirst+iZ] = ZernCoeff[iZ+1]
@@ -367,10 +367,10 @@ if __name__ == "__main__":
     if aDict["ZernikeArray"]!=None:
         actualZernikeArray  = numpy.array(eval(aDict["ZernikeArray"]))
         aDict["ZernikeArray"] = actualZernikeArray
-        print "Zernikes are", actualZernikeArray
+        print("Zernikes are", actualZernikeArray)
     else:
         aDict["ZernikeArray"] = numpy.array([])
-    print aDict
+    print(aDict)
 
     # do it now
     m = makedonut(**aDict)
