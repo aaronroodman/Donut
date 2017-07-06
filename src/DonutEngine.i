@@ -52,7 +52,7 @@ def donutengine(**inputDict):
   """  donutengine class for calculating out-of-focus star images from Zernike pupil basis """
 
   # special code for scaleFactor - be sure it is a float
-  if inputDict.has_key("scaleFactor"):
+  if "scaleFactor" in inputDict:
     inputDict["scaleFactor"] = float(inputDict["scaleFactor"])
 
   # split inputDict into 3 dictionaries - S,I,D
