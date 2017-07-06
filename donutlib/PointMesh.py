@@ -168,6 +168,8 @@ class PointMesh(object):
         self.interpRbf = {}
         self.interpIDW = {}
         self.interpBMedian = {}
+        self.interpBNentry = {}
+        self.interpBMAD = {}
         self.interpTMean = {}
         self.interpTStd = {}
 
@@ -225,6 +227,8 @@ class PointMesh(object):
 
                     # use the median for each bin in each Coord
                     self.interpBMedian[iCoord] = numpy.zeros((ny,nx))
+                    self.interpBNentry[iCoord] = numpy.zeros((ny,nx))
+                    self.interpBMAD[iCoord] = numpy.zeros((ny,nx))
                     zvalL = []
                     xbin = numpy.digitize(xData,xEdge[0,:]) - 1
                     ybin = numpy.digitize(yData,yEdge[:,0]) - 1
@@ -232,9 +236,13 @@ class PointMesh(object):
                         for j in range(ny):
                             ok = numpy.logical_and.reduce((xbin==i,ybin==j))
                             zHere = zData[ok]
+                            # add nEntry, MAD to the saved variables for the Mesh
                             nEntry = zHere.shape[0]
                             if nEntry>=1:
-                                self.interpBMedian[iCoord][j,i] = numpy.median(zHere)
+                                median_value = numpy.median(zHere)
+                                self.interpBMedian[iCoord][j,i] = median_value
+                                self.interpBNentry[iCoord][j,i] = nEntry
+                                self.interpBMAD[iCoord][j,i] = numpy.median(numpy.abs(zHere-median_value))
                             else:
                                 # need to do something better!
                                 self.interpBMedian[iCoord][j,i] =0.
@@ -264,6 +272,8 @@ class PointMesh(object):
             else:
                 self.interpTMean[iCoord] = 0.0
                 self.interpBMedian[iCoord] = None
+                self.interpBNentry[iCoord] = None
+                self.interpBMAD[iCoord] = None
                 self.interpTStd[iCoord] = 0.0
                 self.interpSpline[iCoord] = None
                 self.interpRbf[iCoord] = None
@@ -1065,8 +1075,11 @@ class PointMesh(object):
             newPointsDict[iCoord] = newPointsArray    
 
         # build the mesh
-
         newMesh = PointMesh(newCoordList,newGridArray,pointsArray=newPointsDict,myMethod=newMyMethod)
+
+        # save Nentry, MAD too
+#        newMesh.interpNentry = self.interpNentry.copy()
+#        newMesh.interpMAD = self.interpMAD.copy()
 
         return newMesh
 
