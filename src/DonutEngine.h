@@ -65,6 +65,7 @@ public:
   void getParCurrent(double** ARGOUTVIEW_ARRAY1, int* DIM1);  
   void getDerivatives(double** ARGOUTVIEW_ARRAY1, int* DIM1);  
   void setXYDECam(double x, double y){_xDECam = x; _yDECam = y;};
+  void setXYDESI(double thetax, double thetay){_xDESI=thetax;  _yDESI=thetay;}; // added to handle DESI's geometric differences from DECam
   void fillPar(double* par, int n);
   void calcWFMtoImage(double* IN_ARRAY2, int DIM1, int DIM2);
 
@@ -126,6 +127,8 @@ public:
   int nCallsCalcAll,nCallsCalcDerivative;
   int nZernikeSize;
   
+  Real _xDESI;
+  Real _yDESI;
 
 protected:
   
