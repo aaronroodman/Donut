@@ -915,7 +915,8 @@ void DonutEngine::calcPupilMask(){
 
     }
 
-  else if (_iTelescope==5){
+  else if (_iTelescope==5){  //special case for DESI
+    // build the pupil Mask
     Matrix dx(_nbin,_nbin);
     Matrix dy(_nbin,_nbin);
     dx = _xaxis;
@@ -925,15 +926,12 @@ void DonutEngine::calcPupilMask(){
     Matrix dxprime(_nbin, _nbin);
     Matrix dyprime(_nbin, _nbin);
     Matrix _rhoellipse(_nbin, _nbin);
-    //_xDESI = 1.335;
-    //_yDESI = 0.89;
 
     Real spiderWidth = 0.0; //TBD
-    //Real B = 0.99863634904 * 1.37;  //pupil obscuration major axis
-    //Real A = 0.96473760411 * 1.37;  //pupil obscuration minor axis
-    Real invAsq = 0.57245381187;
-    Real invBsq = 0.53424950221;
+    Real invAsq = 0.57245381187;  //inverse square of the major axis of the aperture
+    Real invBsq = 0.53424950221;  //inverse square of the minor axis of the aperture
     
+    // create a grid for the aperture ellipse
     for (int i=0; i<_nbin * _nbin; i++){
       _rhoellipse(i) = sqrt(_xaxis(i)*_xaxis(i)*invAsq + _yaxis(i) * _yaxis(i) * invBsq) / _outerRadius;
     }
@@ -941,26 +939,29 @@ void DonutEngine::calcPupilMask(){
     Matrix spiderMask(_nbin,_nbin);
     Matrix annulusMask(_nbin,_nbin);
 
-    Real a = 0.956343696 -0.02034548701 * _xDESI + 0.05050383872 * _yDESI;
-    Real b = 0.9664723832 -0.0359776269 * _xDESI + 0.02464690834 * _yDESI;
+    Real a = 0.956343696  - 0.02034548701 * _xDESI + 0.05050383872 * _yDESI;
+    Real b = 0.9664723832 - 0.0359776269  * _xDESI + 0.02464690834 * _yDESI;
 
-    Real invasq = 1. / pow(a*1.37, 2);  // reciprocal of obscuration major axis squared
-    Real invbsq = 1. / pow(b*1.37, 2);  // reciprocal of obscuration minor axis squared
-    Real cy = -0.09*1.37;  // center of obscuration ellipse on x axis
-    Real cx = 0.095*1.37;   // center of oscuration ellipse on y axis
+    Real invasq = 1. / pow(a*1.37, 2);  // inverse square of obscuration major axis 
+    Real invbsq = 1. / pow(b*1.37, 2);  // inverse square of obscuration minor axis 
+    Real cy = -0.1233;   // center of obscuration ellipse on y axis
+    Real cx = 0.13015;   // center of oscuration ellipse on x axis
     
     //calculate angle of rotation of obscuration ellipse
     Real phi = -353.750340246 + 192.46801126 * _xDESI + 112.10949469 * _yDESI;
     
-    Real dbs0 = 1.56;
-    Real dbs1 = -2.21165461;
-    Real biteslope = 1.43295788 + dbs0 * _xDESI + dbs1 * _yDESI;
-    Real biteint = -8.81802987607 + 2.71588835 * _xDESI + 3.84451752 * _yDESI;
+    // calculate the slope and intercept of the vignetting feature, i.e. "bite"
+    Real biteslope =  1.43295788    + 1.56       * _xDESI - 2.21165461 * _yDESI;
+    Real biteint   = -8.81802987607 + 2.71588835 * _xDESI + 3.84451752 * _yDESI;
+
+    // Declare a few variables we need for the mask loop below
     Real lhs;
     Real rhs;
     Real bitex;
     Real bitey;
+
     for (int i=0;i<_nbin*_nbin;i++){
+        // build a mask for the obscuration ellipse
 	lhs = cos(phi) * (dx(i) - cx) + (dy(i) - cy) * sin(phi);
 	rhs = sin(phi) * (dx(i) - cx) - (dy(i) - cy) * cos(phi);
 	rhoprime(i) = sqrt(lhs * lhs * invasq + rhs * rhs * invbsq) / _innerRadius;
@@ -982,12 +983,7 @@ void DonutEngine::calcPupilMask(){
 	} else {
 	  annulusMask(i) = 0.0;
 	}
-	//calculate the bite function
-	//bitex = biteint + biteslope * dy(i);
-	//if (dx(i) < bitex){
-	  //annulusMask(i) = 0.0;
-	//}
-
+	// calculate the bite function and incorporate it into the pupil mask
         bitey = biteint + biteslope * dx(i);
 	if (dy(i) < bitey){
 	  annulusMask(i) = 0.0;
