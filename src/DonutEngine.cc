@@ -180,7 +180,8 @@ void DonutEngine::fillOptions(MapStoS inputMapS, MapStoI inputMapI, MapStoD inpu
   // always initialize xDECam,yDECam to zero, change with setXYDECam
   _xDECam = 0.0;
   _yDECam = 0.0;
-
+  _xDESI  = 0.0;
+  _yDESI  = 0.0;
 
 }
 
@@ -260,7 +261,7 @@ void DonutEngine::calcParameters(int iT){
   //            = 2 for LSST
   //            = 3 for Magellan MegaCam
   //            = 4 for Magellan IMACS F/2
-  // 
+  //            = 5 for DESI
 
 
   if (iT==0) {
@@ -297,6 +298,13 @@ void DonutEngine::calcParameters(int iT){
     _zLength = 15.47;  // F#2.38 see http://www.lco.cl/telescopes-information/magellan/instruments/imacs/imacs-specs
     _lambdaz = _waveLength * _zLength;  
     _fLength = 15.47;
+    _pixelSize = 1.0 * 15.0e-6;  // operated in 1x1 mode, 15 micron pixels
+  } else if (iT==5){
+    _outerRadius = 0.892; // from Zemax
+    _innerRadius = 0.439; // from outerRadius*<innermajoraxis, innerminoraxis>/<outermajoraxis, outerminoraxis>
+    _zLength = 6.523858;  // F#3.66
+    _lambdaz = _waveLength * _zLength;  
+    _fLength = 13.92452; //from Zemax
     _pixelSize = 1.0 * 15.0e-6;  // operated in 1x1 mode, 15 micron pixels
 
   } 
@@ -701,8 +709,6 @@ void DonutEngine::calcAll(Real* par){
 
 }
 
-
-
 void DonutEngine::fillPar(double* par, int n){
   fillPar(par);
 }
@@ -907,7 +913,93 @@ void DonutEngine::calcPupilMask(){
 	}
       } 
 
-    } else {
+    }
+
+  else if (_iTelescope==5){  //special case for DESI
+    // build the pupil Mask
+    Matrix dx(_nbin,_nbin);
+    Matrix dy(_nbin,_nbin);
+    dx = _xaxis;
+    dy = _yaxis;
+    
+    Matrix rhoprime(_nbin,_nbin);
+    Matrix dxprime(_nbin, _nbin);
+    Matrix dyprime(_nbin, _nbin);
+    Matrix _rhoellipse(_nbin, _nbin);
+
+    Real spiderWidth = 0.0; //TBD
+    Real invAsq = 0.57245381187;  //inverse square of the major axis of the aperture
+    Real invBsq = 0.53424950221;  //inverse square of the minor axis of the aperture
+    
+    // create a grid for the aperture ellipse
+    for (int i=0; i<_nbin * _nbin; i++){
+      _rhoellipse(i) = sqrt(_xaxis(i)*_xaxis(i)*invAsq + _yaxis(i) * _yaxis(i) * invBsq) / _outerRadius;
+    }
+    
+    Matrix spiderMask(_nbin,_nbin);
+    Matrix annulusMask(_nbin,_nbin);
+
+    Real a = 0.956343696  - 0.02034548701 * _xDESI + 0.05050383872 * _yDESI;
+    Real b = 0.9664723832 - 0.0359776269  * _xDESI + 0.02464690834 * _yDESI;
+
+    Real invasq = 1. / pow(a*1.37, 2);  // inverse square of obscuration major axis 
+    Real invbsq = 1. / pow(b*1.37, 2);  // inverse square of obscuration minor axis 
+    Real cy = -0.1233;   // center of obscuration ellipse on y axis
+    Real cx = 0.13015;   // center of oscuration ellipse on x axis
+    
+    //calculate angle of rotation of obscuration ellipse
+    Real phi = -353.750340246 + 192.46801126 * _xDESI + 112.10949469 * _yDESI;
+    
+    // calculate the slope and intercept of the vignetting feature, i.e. "bite"
+    Real biteslope =  1.43295788    + 1.56       * _xDESI - 2.21165461 * _yDESI;
+    Real biteint   = -8.81802987607 + 2.71588835 * _xDESI + 3.84451752 * _yDESI;
+
+    // Declare a few variables we need for the mask loop below
+    Real lhs;
+    Real rhs;
+    Real bitex;
+    Real bitey;
+
+    for (int i=0;i<_nbin*_nbin;i++){
+        // build a mask for the obscuration ellipse
+	lhs = cos(phi) * (dx(i) - cx) + (dy(i) - cy) * sin(phi);
+	rhs = sin(phi) * (dx(i) - cx) - (dy(i) - cy) * cos(phi);
+	rhoprime(i) = sqrt(lhs * lhs * invasq + rhs * rhs * invbsq) / _innerRadius;
+	
+	// rotate by 45deg, cut around spiderWidth, rotate back
+	dxprime(i) = dx(i) * cos(_M_PI_4) - dy(i) * sin(_M_PI_4);
+	dyprime(i) = dx(i) * sin(_M_PI_4) + dy(i) * cos(_M_PI_4);
+	
+
+	if ( fabs(dxprime(i))<spiderWidth ||  fabs(dyprime(i))<spiderWidth ){
+	  spiderMask(i) = 0.0;
+	} else {
+	  spiderMask(i) = 1.0;
+	}
+	
+	// pupil plane with central obscuration
+	if ( _rhoellipse(i)<1.0 && rhoprime(i)>1. ){
+	  annulusMask(i) = 1.0;
+	} else {
+	  annulusMask(i) = 0.0;
+	}
+	// calculate the bite function and incorporate it into the pupil mask
+        bitey = biteint + biteslope * dx(i);
+	if (dy(i) < bitey){
+	  annulusMask(i) = 0.0;
+	}
+	
+	// combine spider and annulus
+	if (spiderMask(i)==1.0 && annulusMask(i)==1.0){
+	  _pupilMask(i) = 1.0;
+	} else {
+	  _pupilMask(i) = 0.0;
+	}
+    } 
+    
+    
+  }
+  else {
       // input parameters will define pupilMask
       // parameters: spiderWidth, innerRadius
       
