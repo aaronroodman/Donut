@@ -15,7 +15,7 @@ z8 = .05
 z9 = 0.3
 z10 = -.05
 z11 = .2
-inputDict = {'writeToFits':True,'outputPrefix':'unittest.0001','iTelescope':0,'nZernikeTerms':37,'nbin':512,'nPixels':64,'pixelOverSample':8,'scaleFactor':1.,'rzero':0.125, 'nEle':1.0e6, 'background':4000., 'randomFlag':True, 'randomSeed':2314809, 'ZernikeArray':[0.,0.,0.,z4,z5,z6,z7,z8,z9,z10,z11]}
+inputDict = {'writeToFits':True,'outputPrefix':'unittest.0001','iTelescope':5,'nZernikeTerms':37,'nbin':512,'nPixels':64,'pixelOverSample':8,'scaleFactor':1.,'rzero':0.125, 'nEle':1.0e6, 'background':4000., 'randomFlag':True, 'randomSeed':2314809, 'ZernikeArray':[0.,0.,0.,z4,z5,z6,z7,z8,z9,z10,z11],'xDECam':1.318,'yDECam':0.86}
 
 m = makedonut(**inputDict)
 donut1 = m.make()
@@ -27,7 +27,7 @@ newDict = {'outputPrefix':'unittest.0002','ZernikeArray':[0.,0.,0.,z4,z5,z6,z7,z
 donut2 = m.make(**newDict)
 
 ## fit them
-fitinitDict = {"nZernikeTerms":15,"fixedParamArray1":[0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1],"fixedParamArray2":[0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0],"nFits":2,"nPixels":64,"nbin":512,"scaleFactor":1.0,"pixelOverSample":8,"iTelescope":0,"inputrzero":0.15,"debugFlag":False}
+fitinitDict = {"nZernikeTerms":15,"fixedParamArray1":[0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1],"fixedParamArray2":[0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0],"nFits":2,"nPixels":64,"nbin":512,"scaleFactor":1.0,"pixelOverSample":8,"iTelescope":5,"inputrzero":0.15,"debugFlag":False}
 df = donutfit(**fitinitDict)
 
 # fit first donut
