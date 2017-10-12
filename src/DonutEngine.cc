@@ -180,8 +180,8 @@ void DonutEngine::fillOptions(MapStoS inputMapS, MapStoI inputMapI, MapStoD inpu
   // always initialize xDECam,yDECam to zero, change with setXYDECam
   _xDECam = 0.0;
   _yDECam = 0.0;
-  _xDESI  = 0.0;
-  _yDESI  = 0.0;
+  //_xDESI  = 0.0;
+  //_yDESI  = 0.0;
 
 }
 
@@ -939,8 +939,8 @@ void DonutEngine::calcPupilMask(){
     Matrix spiderMask(_nbin,_nbin);
     Matrix annulusMask(_nbin,_nbin);
 
-    Real a = 0.956343696  - 0.02034548701 * _xDESI + 0.05050383872 * _yDESI;
-    Real b = 0.9664723832 - 0.0359776269  * _xDESI + 0.02464690834 * _yDESI;
+    Real a = 0.956343696  - 0.02034548701 * _xDECam + 0.05050383872 * _yDECam;
+    Real b = 0.9664723832 - 0.0359776269  * _xDECam + 0.02464690834 * _yDECam;
 
     Real invasq = 1. / pow(a*1.37, 2);  // inverse square of obscuration major axis 
     Real invbsq = 1. / pow(b*1.37, 2);  // inverse square of obscuration minor axis 
@@ -948,11 +948,11 @@ void DonutEngine::calcPupilMask(){
     Real cx = 0.13015;   // center of oscuration ellipse on x axis
     
     //calculate angle of rotation of obscuration ellipse
-    Real phi = -353.750340246 + 192.46801126 * _xDESI + 112.10949469 * _yDESI;
+    Real phi = -353.750340246 + 192.46801126 * _xDECam + 112.10949469 * _yDECam;
     
     // calculate the slope and intercept of the vignetting feature, i.e. "bite"
-    Real biteslope =  1.43295788    + 1.56       * _xDESI - 2.21165461 * _yDESI;
-    Real biteint   = -8.81802987607 + 2.71588835 * _xDESI + 3.84451752 * _yDESI;
+    Real biteslope =  1.43295788    + 1.56       * _xDECam - 2.21165461 * _yDECam;
+    Real biteint   = -8.81802987607 + 2.71588835 * _xDECam + 3.84451752 * _yDECam;
 
     // Declare a few variables we need for the mask loop below
     Real lhs;
