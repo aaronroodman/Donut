@@ -104,8 +104,8 @@ class makedonut(object):
             self.ix = -1024
             self.iy = 2048
         else:        
-            self.extname = self.dinfo.getSensor(X,Y)
-            x,y = self.dinfo.getPixel(self.extname,X,Y)
+            self.extname = 'GFA' # comment out for DESI testing self.dinfo.getSensor(X,Y)
+            x,y = 0.,0. # comment out for DESI testing self.dinfo.getPixel(self.extname,X,Y)
             self.ix = int(x+0.5)
             self.iy = int(y+0.5)
 
