@@ -187,7 +187,7 @@ def getZemaxArray(filename,skiplines,halfsize,nbins):
 
     return xaxis,yaxis,fixedarray
 
-def getZemaxWfm(txtFile):
+def getZemaxWfm(txtFile,encoding=""):
 
     # parse for width and number of bins
     regexp1 = re.compile("Exit Pupil Diameter:")

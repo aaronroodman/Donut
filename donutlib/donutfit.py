@@ -133,7 +133,8 @@ class donutfit(object):
 
             # get the input file header
             hdulist = pyfits.open(fileName)
-            self.inputHeader = hdulist[0].header
+            iextension = 0   # set to other values for test usage
+            self.inputHeader = hdulist[iextension].header
 
             # get the extension name from the header
             if list(self.inputHeader.keys()).count("EXTNAME")>0:
@@ -169,7 +170,7 @@ class donutfit(object):
             # load the Image AJR 9/14/2012 - now assume we are only running on postage stamps - remove ability to
             # work on full image, never use that anymore...
             ### self.imgarray = hdulist[0].data.copy() this caused bugs with some fits files
-            self.imgarray = hdulist[0].data.astype(numpy.float64)
+            self.imgarray = hdulist[iextension].data.astype(numpy.float64)
                 
             constantError2 = 7.1 * 7.1 
             self.sigmasq = self.imgarray + constantError2

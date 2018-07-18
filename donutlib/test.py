@@ -7,7 +7,7 @@ from donutlib.donutfit import donutfit
 
 
 # make donuts
-z4 = 10.
+z4 = 5.
 z5 = 0.2
 z6 = 0.2
 z7 = -0.15
@@ -20,7 +20,7 @@ inputDict = {'writeToFits':True,'outputPrefix':'unittest.0001','iTelescope':5,'n
 m = makedonut(**inputDict)
 donut1 = m.make()
 
-z4 = 10.5
+z4 = 5.5
 z9 = -0.05
 z10 = 0.3
 newDict = {'outputPrefix':'unittest.0002','ZernikeArray':[0.,0.,0.,z4,z5,z6,z7,z8,z9,z10,z11]}
@@ -35,7 +35,7 @@ fitDict  = {}
 fitDict["inputFile"] = 'unittest.0001.stamp.fits'
 fitDict["outputPrefix"] = 'unittest.0001'
 fitDict["inputrzero"] = 0.125
-fitDict["inputZernikeDict"] = {"N4":[0.0,0.0,11.0]}
+fitDict["inputZernikeDict"] = {"N4":[0.0,0.0,5.0],"None":[0.0,0.0,5.0]}
 df.setupFit(**fitDict)
 
 # fit second one

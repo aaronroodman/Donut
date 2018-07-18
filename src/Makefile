@@ -8,12 +8,14 @@ CXX = g++
 SWIGFLAGS = -python -c++ -w490 -I$cwd
 
 ifeq ($(OS), Darwin)
+	CC = llvm-gcc
+	CXX = llvm-g++
 #	CFLAGS = -Wall -ansi -g
 	CFLAGS =  -Wall -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2 -mtune=native -fPIC
 	LD = gcc
 	LDFLAGS = -bundle -flat_namespace -undefined suppress
 	LIBS = -L/opt/local/lib  -lcfitsio -lfftw3 -lm
-	INCS = -I/Users/roodman/Astrophysics/Code/donutlib -I/opt/local/include -I$(PYTHONHOMEDIR)/include/python2.7 -I$(PYTHONHOMEDIR)/lib/python2.7/site-packages/numpy/core/include
+	INCS = -I/Users/roodman/Astrophysics/Code/donutlib -I/opt/local/include -I$(PYTHONHOMEDIR)/include/python3.6m -I$(PYTHONHOMEDIR)/lib/python3.6/site-packages/numpy/core/include
 	SW = swig
 
 else
