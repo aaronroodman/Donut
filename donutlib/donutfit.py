@@ -36,7 +36,9 @@ class donutfit(object):
                           "outputChi2":False,
                           "printLevel":1,
                           "maxIterations":1000,
-                          "calcRzeroDerivative":True}
+                          "calcRzeroDerivative":True,
+                          "wavefrontMap":None,
+                          "gain":1.0}
 
         # search for key in inputDict, change defaults
         self.paramDict.update(inputDict)
@@ -85,6 +87,9 @@ class donutfit(object):
         # (note that one can redefine the parameters, so this method can be called multiple times)
         for ipar in range(self.gFitFunc.npar):
             self.gMinuit.DefineParameter(ipar,self.gFitFunc.parNames[ipar],self.startingParam[ipar],self.errorParam[ipar],self.loParam[ipar],self.hiParam[ipar])
+
+        # get wavefrontMap object
+        self.wavefrontMap = self.paramDict['wavefrontMap']
 
 
     def setupFit(self,**inputFitDict):
@@ -170,7 +175,8 @@ class donutfit(object):
             # load the Image AJR 9/14/2012 - now assume we are only running on postage stamps - remove ability to
             # work on full image, never use that anymore...
             ### self.imgarray = hdulist[0].data.copy() this caused bugs with some fits files
-            self.imgarray = hdulist[iextension].data.astype(numpy.float64)
+            gain = self.paramDict["gain"] #convert to Nele from Nadu
+            self.imgarray = gain * hdulist[iextension].data.astype(numpy.float64)
                 
             constantError2 = 7.1 * 7.1 
             self.sigmasq = self.imgarray + constantError2
@@ -185,9 +191,19 @@ class donutfit(object):
             self.imgarray = inputImageArray.astype(numpy.float64)
             self.weight = 1.0/numpy.sqrt(self.imgarray)
        
-        # setup starting Zernike array
+        # setup starting Zernike array - start with the inputZernikeDict keyed by extension name
+        # if wavefrontMap exists, then use that to fill all Zernike coefficients from zern5 to nZernikeSize (zern5 is iZ=3)
+
         # take this from the inputZernikeDict keyed by the value of extname in the header
         inputZernikeArray = self.fitDict["inputZernikeDict"][extname]
+
+        # set zernike terms after Focus (starting from 5) to values from Zemax built map, if desired
+        if self.wavefrontMap != None:
+            anotherZernikeArray = self.wavefrontMap.get(xDECam,yDECam,nZernikeFirst=5,nZernikeLast=self.fitDict["nZernikeTerms"])
+            for iZ in range(5,self.fitDict["nZernikeTerms"]+1):
+                inputZernikeArray[iZ-2] = anotherZernikeArray[iZ-5]
+
+        # fill startingZernikeArray
         startingZernikeArray = numpy.zeros(self.gFitFunc.nZernikeSize)
         for iZ in range(len(inputZernikeArray)):
             # starting from 1st used Zernike term
@@ -502,7 +518,7 @@ class donutfit(object):
         outFile =  outName + ".donut.fits"
         if self.paramDict["printLevel"]>=1:
             hduListOutput.info()
-        hduListOutput.writeto(outFile,clobber=True)
+        hduListOutput.writeto(outFile,overwrite=True)
 
         # add info from input Header for return
         outputDict.update(outputHeaderDict)

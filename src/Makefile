@@ -5,7 +5,7 @@ OS := $(shell uname)
 
 CC = gcc
 CXX = g++
-SWIGFLAGS = -python -c++ -w490 -I$cwd
+SWIGFLAGS = -python -c++ -w490 -I$cwd 
 
 ifeq ($(OS), Darwin)
 	CC = llvm-gcc
@@ -37,21 +37,24 @@ else
 			INCS = -I$(CFITSIO_PRODUCT)/include -I/usr/include/python2.7  
 		endif
 		SW = swig
+
 	else
-#		CFLAGS = -Wall -ansi -g -fPIC
-# 		standard:	CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC
-# 		new, faster, use in queue: CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC  ### but is now failing!!
-# 		for interactive making use: CFLAGS =  -ansi -O3  -m64  -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2   -fPIC
+#CFLAGS = -Wall -ansi -g -fPIC
+# standard:	CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC
+# new, faster, use in queue: CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC  ### but is now failing!!
+# for interactive making use: CFLAGS =  -ansi -O3  -m64  -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2   -fPIC
 		CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC	
-#		CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
+#CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
 		LD = g++
-		LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(XRAY_SOFTDIR)/cfitsio/3.37/lib' -Wl,-rpath,'$(XRAY_SOFTDIR)/fftw/3.3.2/lib'
+		LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(XRAY_SOFTDIR)/cfitsio/3.43/lib' -Wl,-rpath,'$(XRAY_SOFTDIR)/fftw/3.3.6/lib'
 
-		LIBS = -L$(XRAY_SOFTDIR)/cfitsio/3.37/lib -L$(XRAY_SOFTDIR)/fftw/3.3.2/lib  -L/usr/lib64 -L$(ANACONDA)/lib/python2.7 -lcfitsio -lfftw3 -lm
-		INCS = -I$(XRAY_SOFTDIR)/cfitsio/3.37/include -I$(XRAY_SOFTDIR)/fftw/3.3.2/include -I$(ANACONDA)/include/python2.7  
+		LIBS = -L$(XRAY_SOFTDIR)/cfitsio/3.43/lib -L$(XRAY_SOFTDIR)/fftw/3.3.6/lib  -L/usr/lib64 -L$(ANACONDA)/lib/python3.6 -lcfitsio -lfftw3 -lm
+		INCS = -I$(XRAY_SOFTDIR)/cfitsio/3.43/include -I$(XRAY_SOFTDIR)/fftw/3.3.6/include -I$(ANACONDA)/include/python3.6m -I$(ANACONDA)/lib/python3.6/site-packages/numpy/core/include
 
-		SW = $(XRAY_SOFTDIR)/swig/2.0.4/bin/swig
+		SW = swig
+
 	endif
+
 endif
 
 all: donutengine

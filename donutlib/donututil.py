@@ -361,7 +361,7 @@ def loadImageFromFile(fileName,iExtension=0,ixCenter=32,iyCenter=32,nhalfPixels=
         hdu = pyfits.PrimaryHDU(imgarray)
         hdulist = pyfits.HDUList([hdu])
         outFile = outputPrefix + "-image.fits"
-        hdulist.writeto(outFile,clobber=True)
+        hdulist.writeto(outFile,overwrite=True)
         # close file
         hdulist.close()
 
@@ -427,7 +427,7 @@ def loadImage(hdulist,iExtension=0,ixCenter=32,iyCenter=32,nhalfPixels=32,dumpFl
         hdu = pyfits.PrimaryHDU(imgarray)
         hdulistOut = pyfits.HDUList([hdu])
         outFile = outputPrefix + "-image.fits"
-        hdulistOut.writeto(outFile,clobber=True)
+        hdulistOut.writeto(outFile,overwrite=True)
         # close file
         hdulistOut.close()
 
@@ -516,7 +516,7 @@ def writePostageStamp(hdulist,iFile,iExtension=0,ixCenter=32,iyCenter=32,nhalfPi
             stamphdr.update(key,extraheader[key])
 
     # write out postage stamp
-    stamphdulist.writeto(outputFile,clobber=True)
+    stamphdulist.writeto(outputFile,overwrite=True)
 
 
 def calcWeight(imgarray,constantError):

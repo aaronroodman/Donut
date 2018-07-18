@@ -182,6 +182,7 @@ class makedonut(object):
 
         #print "makedonut: got the vImage"
 
+        # make the donut in units of electrons 
         if self.paramDict["randomFlag"]:
             postageshape = theImage.shape
             nranval = numpy.random.normal(0.0,1.0,postageshape)
@@ -189,7 +190,7 @@ class makedonut(object):
         else:
             imarr = theImage
 
-        # apply gain
+        # apply gain to convert from electrons to ADU (Gain=e/ADU)
         imarr = imarr / self.paramDict["gain"]
 
         # make sure that imarr has dtype = float32
@@ -235,7 +236,7 @@ class makedonut(object):
 
             hdulist = pyfits.HDUList([hdu])
             outFile = self.paramDict["outputPrefix"] + ".stamp.fits"
-            hdulist.writeto(outFile,clobber=True)
+            hdulist.writeto(outFile,overwrite=True)
             return 1
 
         else:
