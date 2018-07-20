@@ -197,17 +197,17 @@ class donutfit(object):
         # take this from the inputZernikeDict keyed by the value of extname in the header
         inputZernikeArray = self.fitDict["inputZernikeDict"][extname]
 
-        # set zernike terms after Focus (starting from 5) to values from Zemax built map, if desired
-        if self.wavefrontMap != None:
-            anotherZernikeArray = self.wavefrontMap.get(xDECam,yDECam,nZernikeFirst=5,nZernikeLast=self.fitDict["nZernikeTerms"])
-            for iZ in range(5,self.fitDict["nZernikeTerms"]+1):
-                inputZernikeArray[iZ-2] = anotherZernikeArray[iZ-5]
-
-        # fill startingZernikeArray
+        # fill startingZernikeArray from the inputZernikeArray values
         startingZernikeArray = numpy.zeros(self.gFitFunc.nZernikeSize)
         for iZ in range(len(inputZernikeArray)):
             # starting from 1st used Zernike term
-            startingZernikeArray[iZ] = inputZernikeArray[iZ]
+            startingZernikeArray[iZ] = inputZernikeArray[iZ]        
+       
+        # if the wavefrontMap is present, overwrite the zernike terms after Focus (starting from 5 and up to nZernikeTerms) to values from Zemax built map
+        if self.wavefrontMap != None:
+            anotherZernikeArray = self.wavefrontMap.get(xDECam,yDECam,nZernikeFirst=5,nZernikeLast=self.paramDict["nZernikeTerms"])
+            for iZ in range(5,self.paramDict["nZernikeTerms"]+1):
+                startingZernikeArray[iZ-2] = anotherZernikeArray[iZ-5]
 
         self.startingParam[self.gFitFunc.ipar_ZernikeFirst:self.gFitFunc.ipar_ZernikeLast+1] = startingZernikeArray
         startingZernikeError = 0.1 * numpy.ones(self.gFitFunc.nZernikeSize)

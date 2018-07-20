@@ -26,7 +26,7 @@ class wavefrontmap(object):
         # fill an array with Zernike coefficients for this x,y in the Map
 
         zout = np.zeros((nZernikeLast-nZernikeFirst+1))
-        for iZactual in range(nZernikeFirst,nZernikeLast):
+        for iZactual in range(nZernikeFirst,nZernikeLast+1):
             iZ = iZactual-1
             zout[iZactual-nZernikeFirst] = self.interpDict[iZ](x,y)
 
