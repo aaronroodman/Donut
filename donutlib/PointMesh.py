@@ -319,14 +319,14 @@ class PointMesh(object):
                 return Z
 
         elif self.myMethod == "bmedian":
-            if self.interpBMedian[iCoord] != None:
-                xEdge,yEdge = self.interpEdges[iCoord]
-                xbin = numpy.digitize(x,xEdge[0,:]) - 1
-                ybin = numpy.digitize(y,yEdge[:,0]) - 1
-                return self.interpBMedian[iCoord][ybin,xbin]
-            else:
-                Z = numpy.zeros(x.shape)
-                return Z
+            #if self.interpBMedian[iCoord] != None:
+            xEdge,yEdge = self.interpEdges[iCoord]
+            xbin = numpy.digitize(x,xEdge[0,:]) - 1
+            ybin = numpy.digitize(y,yEdge[:,0]) - 1
+            return self.interpBMedian[iCoord][ybin,xbin]
+            #else:
+            #    Z = numpy.zeros(x.shape)
+            #    return Z
 
         elif self.myMethod == "grid":
             # unfortunately griddata needs to be filled with the points each time

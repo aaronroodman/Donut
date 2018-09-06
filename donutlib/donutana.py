@@ -1,7 +1,7 @@
 import numpy
 import scipy
 import time
-import pyfits
+from astropy.io import fits as pyfits
 import copy
 import statsmodels.api as sm
 import os.path
