@@ -2,6 +2,7 @@
 ### Script for very basic testing of donutengine and donutfit
 ###
 
+import os
 from donutlib.makedonut import makedonut
 from donutlib.donutfit import donutfit
 from donutlib.wavefrontmap import wavefrontmap
@@ -13,7 +14,7 @@ zarray = [0.16335417, 0.04209118, 0.47722926, 11.0+0.01731888, -0.02072751, -0.1
 
 xdecam,ydecam = 16.9203, -191.826
 
-wmap = "/u/ec/roodman/Astrophysics/Donuts/decam_2012-nominalzernike.pickle"
+wmap = os.path.expanduser("~/Astrophysics/Donuts/decam_2012-nominalzernike.pickle")
 wmapobj = wavefrontmap(wmap)
 
 inputDict = {'writeToFits':True,'outputPrefix':'unittestw.0001','iTelescope':0,'nZernikeTerms':37,'nbin':512,'nPixels':64,'pixelOverSample':8,'scaleFactor':1.,'rzero':0.125, 'nEle':1.0e6, 'background':4000., 'randomFlag':True, 'randomSeed':2314809, 'ZernikeArray':zarray,'gain':4.5,'xDECam':xdecam,'yDECam':ydecam}
