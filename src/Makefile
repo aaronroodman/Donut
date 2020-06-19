@@ -15,7 +15,7 @@ ifeq ($(OS), Darwin)
 	LD = gcc
 	LDFLAGS = -bundle -flat_namespace -undefined suppress
 	LIBS = -L/opt/local/lib  -lcfitsio -lfftw3 -lm
-	INCS = -I/Users/roodman/Astrophysics/Code/donutlib -I/opt/local/include -I$(PYTHONHOMEDIR)/include/python3.6m -I$(PYTHONHOMEDIR)/lib/python3.6/site-packages/numpy/core/include
+	INCS = -I/Users/roodman/Astrophysics/Code/donutlib -I/opt/local/include -I$(PYTHONHOMEDIR)/include/python3.7m -I$(PYTHONHOMEDIR)/lib/python3.7/site-packages/numpy/core/include
 	SW = swig
 
 else
@@ -48,8 +48,8 @@ else
 		LD = g++
 		LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(XRAY_SOFTDIR)/cfitsio/3.43/lib' -Wl,-rpath,'$(XRAY_SOFTDIR)/fftw/3.3.6/lib'
 
-		LIBS = -L$(XRAY_SOFTDIR)/cfitsio/3.43/lib -L$(XRAY_SOFTDIR)/fftw/3.3.6/lib  -L/usr/lib64 -L$(ANACONDA)/lib/python3.6 -lcfitsio -lfftw3 -lm
-		INCS = -I$(XRAY_SOFTDIR)/cfitsio/3.43/include -I$(XRAY_SOFTDIR)/fftw/3.3.6/include -I$(ANACONDA)/include/python3.6m -I$(ANACONDA)/lib/python3.6/site-packages/numpy/core/include
+		LIBS = -L$(XRAY_SOFTDIR)/cfitsio/3.43/lib -L$(XRAY_SOFTDIR)/fftw/3.3.6/lib  -L/usr/lib64 -L$(ANACONDA)/lib/python3.7 -lcfitsio -lfftw3 -lm
+		INCS = -I$(XRAY_SOFTDIR)/cfitsio/3.43/include -I$(XRAY_SOFTDIR)/fftw/3.3.6/include -I$(ANACONDA)/include/python3.7m -I$(ANACONDA)/lib/python3.7/site-packages/numpy/core/include
 
 		SW = swig
 
