@@ -8,15 +8,17 @@ import scipy
 import scipy.special
 import scipy.fftpack as theFFT
 import numpy.lib.index_tricks as itricks
+import cv2
 import re
 import os
 from astropy.io import fits as pyfits
+from astropy.stats import sigma_clip
 import pdb
 
 #
 # declare the functions in this file
 #
-__all__ = ["pupiltopsf","makeXPsf","fouriertrans","invfouriertrans","makeAiry","makeCirc","makeAtmosphere","makeGaussian","makePupilArrays","makeCircWfm","getZemaxArray","getZemaxWfm","getZemaxPsf","fbinrange","flipZemaxArray","loadImage","loadImageFromFile","clipPostageStamp","writePostageStamp","anaPsf","calcStarting","getAllFitsFiles","resample","getFitsWfm"]
+__all__ = ["pupiltopsf","makeXPsf","fouriertrans","invfouriertrans","makeAiry","makeCirc","makeAtmosphere","makeGaussian","makePupilArrays","makeCircWfm","getZemaxArray","getZemaxWfm","getZemaxPsf","fbinrange","flipZemaxArray","anaPsf","loadImage","loadImageFromFile","clipPostageStamp","writePostageStamp","calcWeight","calcStarting","getAllFitsFiles","resample","getFitsWfm","mkDonutMask","mkSqrtImage"]
 
 
 #
@@ -654,5 +656,50 @@ def getFitsWfm(fitsFile,extNo):
     data = hdu[extNo].data
     data64 = data.astype(numpy.float64)
     return data64
+
+
+def mkDonutMask(imgarray,nsigma=7.0,upper_noise_cut=1000.):
+
+    # copy image to temporary array
+    locarray = imgarray.copy()
+
+    # size of postage stamp
+    nArea = locarray.shape[0]*locarray.shape[1]
+
+    # get Sigma of pixels around 0, with 2sigma cut
+    # first assume that after bkg subtraction, the mean level is around 0. and well below upper_noise_cut
+    imgarrayMask = numpy.ma.masked_greater(locarray,upper_noise_cut)
+    noiseMask = sigma_clip(imgarrayMask, sigma=2.0, maxiters=5, masked=True, copy=True)
+
+    # get noise Mean,Std
+    imgMean = noiseMask.mean()
+    imgStd = noiseMask.std()
+    imgarrayDonut = numpy.ma.masked_less(locarray,imgMean+nsigma*imgStd)
+
+    # want a mask = True for usable portion of the Donut
+    mask = numpy.where(imgarrayDonut.mask,0.,1.0)
+    return mask
+
+def mkSqrtImage(image_data,mask_data,pixelfactor):
     
+    # now interpolate to expand grid by a factor of 'pixelfactor' (normally 8)
+    nPixel = image_data.shape[0]  #assume it is square!
+    nBin = nPixel * pixelfactor
+    image_smooth = cv2.resize(image_data,(nBin,nBin),interpolation=cv2.INTER_LANCZOS4)
+
+    # interpolate the mask too
+    mask_temp = cv2.resize(mask_data,(nBin,nBin),interpolation=cv2.INTER_NEAREST)
+    mask_smooth = numpy.where(mask_temp>0.5,1.0,0.)
+    
+    # apply the mask and normalize to sum of original image_data
+    image_smooth = image_smooth * numpy.where(mask_smooth,1.,0.)
+    image_smooth = image_smooth*numpy.sum(image_data)/numpy.sum(image_smooth)
+
+    # take the sqrt
+    imagesqrt_smooth = numpy.sqrt(image_smooth)
+
+    # finally normalize the output to 1.0
+    imagesqrt_norm = imagesqrt_smooth/numpy.sum(imagesqrt_smooth)
+    
+    return image_smooth,imagesqrt_norm
     

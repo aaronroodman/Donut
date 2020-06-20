@@ -431,6 +431,15 @@ void DonutEngine::setupArrays(){
     _pupilWaveZernike(i) = 0.0;
   }
 
+  // pupilWave array
+  _pupilWaveZernikePlusDelta.Dimension(_nbin,_nbin);
+  _pupilWaveZernikePlusDelta.Activate(alignR);
+
+  // MUST explicitly zero _pupilWaveZernikePlusDelta
+  for (int i=0;i<_nbin*_nbin;i++){
+    _pupilWaveZernikePlusDelta(i) = 0.0;
+  }
+
   // set dimensionality of pupil arrays
   _pupilFunc.Dimension(_nbin,_nbin);
   _pupilFunc.Activate(alignC);
@@ -442,6 +451,10 @@ void DonutEngine::setupArrays(){
   _calcG.Activate(alignC);
   _calcGstar.Dimension(_nbin,_nbin);
   _calcGstar.Activate(alignC);
+  _magG.Dimension(_nbin,_nbin);
+  _magG.Activate(alignC);
+  _phaseG.Dimension(_nbin,_nbin);
+  _phaseG.Activate(alignC);
   _psfOptics.Dimension(_nbin,_nbin);
   _psfOptics.Activate(alignR);
   _ftsOptics.Dimension(_nbin,_nbin);
@@ -470,6 +483,10 @@ void DonutEngine::setupArrays(){
   _valPixelCenters.Activate(alignR);
   _calcImage.Dimension(_nPixels,_nPixels);
   _calcImage.Activate(alignR);
+
+  // arrays for deltaWFM
+  _deltaWFM.Dimension(_nbin,_nbin);
+  _deltaWFM.Activate(alignR);
     
 }
 
@@ -523,6 +540,9 @@ void DonutEngine::setupStuff(){
   }
   _shftrAtmos = _rAtmos;    // deep copy 
   fftShift(_shftrAtmos); // shifts in place, was InvShift
+
+  // initialize flag for deltaWFM
+  _usingDeltaWFM = false;
   
 }
 
@@ -630,6 +650,45 @@ void DonutEngine::calcWFMtoImage(Matrix& wfm){
 
 }
 
+void DonutEngine::setDeltaWFM(double* wfm, int nx, int ny){
+  Matrix wfmM(nx,ny);
+  for (int i=0;i<nx*ny;i++){
+    wfmM(i) = wfm[i];
+  }
+  setDeltaWFM(wfmM);
+}
+  
+void DonutEngine::setDeltaWFM(Matrix& wfm){
+      
+  // set the delta WFM contribution
+
+  // this flag is used in fillPars and calcPupilFunction
+  _usingDeltaWFM = true;
+
+  // explictly set state flag
+  _statePupilFunc = false;
+
+  // fill
+  for (int i=0;i<_nbin*_nbin;i++){
+    _deltaWFM(i) = wfm(i);
+  }
+
+}
+
+void DonutEngine::unsetDeltaWFM(){
+  _usingDeltaWFM = false;
+
+  // explictly set state flag
+  _statePupilFunc = false;
+
+    // fill
+  for (int i=0;i<_nbin*_nbin;i++){
+    _deltaWFM(i) = 0.0;
+  }
+
+}
+
+
 void DonutEngine::calcPupilFuncFromWFM(Matrix& wfm){
 
   clock_t start = clock();
@@ -639,7 +698,7 @@ void DonutEngine::calcPupilFuncFromWFM(Matrix& wfm){
   }
   
   // calculate the pupilFunc(tion) from the WFM
-  Complex I = Complex(0.0,1.0);
+  //  Complex I = Complex(0.0,1.0);
   Complex twopiI = Complex(0.0,2.0*_M_PI);
   for (int i=0;i<_nbin*_nbin;i++){
     if (_pupilMask(i)==0.0){
@@ -664,8 +723,7 @@ void DonutEngine::calcPupilFuncFromWFM(Matrix& wfm){
 }
 
 
-
-void DonutEngine::calcAll(double* par, int n){
+void DonutEngine::calcAll(double* par, int n){  
   calcAll(par);
 }
 
@@ -673,14 +731,14 @@ void DonutEngine::calcAll(Real* par){
   
   nCallsCalcAll++;
 
-  // fill parameter and determine how much of the calculation to repeat
+  // fill parameters and determine how much of the calculation to repeat 
   fillPar(par);
         
   // State Machine: call each step of the calculation
   if (!_statePupilMask){ 
     calcPupilMask();
   } 
-  if ( (!_statePupilMask) || (!_statePupilFunc)){ 
+  if ( (!_statePupilMask) || (!_statePupilFunc) ){ 
     calcPupilFunc();
     calcOptics();
   } 
@@ -708,6 +766,21 @@ void DonutEngine::calcAll(Real* par){
   }
 
 }
+
+
+void DonutEngine::calcAll(double* par, int n, double* dwfm, int nx, int ny){
+  Matrix dwfmM(nx,ny);
+  for (int i=0;i<nx*ny;i++){
+    dwfmM(i) = dwfm[i];
+  }
+
+  // fill deltaWFM  - need to do this before fillPar inside calcAll
+  setDeltaWFM(dwfmM);
+
+  // now just call calcAll
+  calcAll(par);
+}
+
 
 void DonutEngine::fillPar(double* par, int n){
   fillPar(par);
@@ -772,6 +845,12 @@ void DonutEngine::fillPar(Real* par){
       }
     }
 
+    // check on state of usingDeltaWFM, if so then also set the state of the PupilFunc to false (needs recalculation)
+    if (_usingDeltaWFM){
+      _statePupilFunc = false;
+    }
+
+
     // Pupil?
     if (_xDECam != _last_xDECam || _yDECam != _last_yDECam){
       _statePupilMask = false;
@@ -795,7 +874,6 @@ void DonutEngine::fillPar(Real* par){
   }
 
 }
-
 
 void DonutEngine::savePar(){
     
@@ -957,7 +1035,7 @@ void DonutEngine::calcPupilMask(){
     // Declare a few variables we need for the mask loop below
     Real lhs;
     Real rhs;
-    Real bitex;
+    //Real bitex;
     Real bitey;
 
     for (int i=0;i<_nbin*_nbin;i++){
@@ -1085,17 +1163,27 @@ void DonutEngine::calcPupilFunc(){
       
     }
   }
- 
+
+  //add deltaWFM if desired
+  if (_usingDeltaWFM){
+     for (int i=0;i<_nbin*_nbin;i++){
+       _pupilWaveZernikePlusDelta(i) = _pupilWaveZernike(i) + _deltaWFM(i);
+     }
+  }
     
   // calculate the pupilFunc(tion) from the pupilWave(front)
-  Complex I = Complex(0.0,1.0);
+  //Complex I = Complex(0.0,1.0);
   Complex twopiI = Complex(0.0,2.0*_M_PI);
   for (int i=0;i<_nbin*_nbin;i++){
     if (_pupilMask(i)==0.0){
       _pupilFunc(i) = 0.0;
       _pupilFuncStar(i) = 0.0;
     } else {
-      _pupilFunc(i) = _pupilMask(i) * exp(twopiI  *_pupilWaveZernike(i));   // no lambda here, so units are in waveLength
+      if (_usingDeltaWFM){
+	_pupilFunc(i) = _pupilMask(i) * exp(twopiI  *_pupilWaveZernikePlusDelta(i));   // no lambda here, so units are in waveLength
+      } else{
+	_pupilFunc(i) = _pupilMask(i) * exp(twopiI  *_pupilWaveZernike(i));   // no lambda here, so units are in waveLength
+      }
       _pupilFuncStar(i) = conj(_pupilFunc(i));
     }
   }
@@ -1167,6 +1255,21 @@ void DonutEngine::calcOptics(){
 
 }
 
+void DonutEngine::shiftnormG(){
+  // shift and normalize Magnitude of _calcG, also get its Phase
+  fftShift(_calcG);
+  Real summagG(0.);
+  for (int i=0;i<_nbin*_nbin;i++){
+    _magG(i) = abs(_calcG(i));
+    _phaseG(i) = arg(_calcG(i));
+    summagG = summagG + _magG(i);
+  }
+  for (int i=0;i<_nbin*_nbin;i++){
+    _magG(i) = _magG(i)/summagG;
+  }
+}
+    
+
 void DonutEngine::calcAtmos(){
 
   clock_t start = clock();
@@ -1206,7 +1309,7 @@ void DonutEngine::calcAtmos(){
   }
   unshftpsfAtmos *= (1.0/atmosNormalization);
 
-  //fftShift(unshftpsfAtmos,_psfAtmos);  //really just needed for debugging
+  fftShift(unshftpsfAtmos,_psfAtmos);  //do by default now...
 
   if (_debugFlag  && nCallsCalcAll<=1){
     fftShift(unshftpsfAtmos,_psfAtmos);
@@ -1717,6 +1820,18 @@ void DonutEngine::getvPupilWaveZernike(double** ARGOUTVIEW_ARRAY2, int* DIM1, in
   *ARGOUTVIEW_ARRAY2 = _pupilWaveZernike();
 }
 
+void DonutEngine::getvPupilWaveZernikePlusDelta(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2){
+  *DIM1 = _pupilWaveZernike.Ny();
+  *DIM2 = _pupilWaveZernike.Nx();
+  *ARGOUTVIEW_ARRAY2 = _pupilWaveZernikePlusDelta();
+}
+
+void DonutEngine::getvDeltaWFM(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2){
+  *DIM1 = _deltaWFM.Ny();
+  *DIM2 = _deltaWFM.Nx();
+  *ARGOUTVIEW_ARRAY2 = _deltaWFM();
+}
+
 void DonutEngine::getvPupilMask(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2){
   *DIM1 = _pupilMask.Ny();
   *DIM2 = _pupilMask.Nx();
@@ -1727,6 +1842,18 @@ void DonutEngine::getvPupilFunc(Complex** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM
   *DIM1 = _pupilFunc.Ny();
   *DIM2 = _pupilFunc.Nx();
   *ARGOUTVIEW_ARRAY2 = _pupilFunc();
+}
+
+void DonutEngine::getvMagG(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2){
+  *DIM1 = _magG.Ny();
+  *DIM2 = _magG.Nx();
+  *ARGOUTVIEW_ARRAY2 = _magG();
+}
+
+void DonutEngine::getvPhaseG(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2){
+  *DIM1 = _phaseG.Ny();
+  *DIM2 = _phaseG.Nx();
+  *ARGOUTVIEW_ARRAY2 = _phaseG();
 }
 
 void DonutEngine::getvPsfOptics(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2){

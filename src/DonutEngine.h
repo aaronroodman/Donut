@@ -48,9 +48,12 @@ public:
 
   // public methods - version with input arrays
   void calcAll(Real* par);
+  //void calcAll(Real* par, Matrix& dwfmM);
   void calcDerivatives(Real* image, Real* weight);
   void calcWFMtoImage(Matrix& wfm);
   void calcPupilFuncFromWFM(Matrix& wfm);
+  void setDeltaWFM(Matrix& wfm);
+  void shiftnormG();
   void resetTimers();
   void printTimers();
   Vector& getvParCurrent(){return _parCurrent;};  
@@ -61,6 +64,7 @@ public:
 
   // public methods - version for SWIG using numpy arrays or lists
   void calcAll(double* par, int n);
+  void calcAll(double* par, int n, double* dwfm, int nx, int ny);
   void calcDerivatives(double* image, int ny, int nx, double* weight, int my, int mx);
   void getParCurrent(double** ARGOUTVIEW_ARRAY1, int* DIM1);  
   void getDerivatives(double** ARGOUTVIEW_ARRAY1, int* DIM1);  
@@ -78,7 +82,11 @@ public:
   MatrixC& getFtsPixel(){return _ftsPixel;}
   Matrix& getPupilMask(){return _pupilMask;}
   Matrix& getPupilWaveZernike(){return _pupilWaveZernike;}
+  Matrix& getPupilWaveZernikePlusDelta(){return _pupilWaveZernikePlusDelta;}
+  Matrix& getDeltaWFM(){return _deltaWFM;}  
   MatrixC& getPupilFunc(){return _pupilFunc;}
+  Matrix& getMagG(){return _magG;}
+  Matrix& getPhaseG(){return _phaseG;}
   Matrix& getPsfOptics(){return _psfOptics;}
   MatrixC& getFtsOptics(){return _ftsOptics;}
   Matrix& getPsfAtmos(){return _psfAtmos;}
@@ -97,7 +105,11 @@ public:
   void getvFtsPixel(Complex** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvPupilMask(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvPupilWaveZernike(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
+  void getvPupilWaveZernikePlusDelta(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
+  void getvDeltaWFM(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvPupilFunc(Complex** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
+  void getvMagG(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
+  void getvPhaseG(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvPsfOptics(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvFtsOptics(Complex** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvPsfAtmos(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
@@ -114,6 +126,10 @@ public:
   // set methods
   void setCalcRzeroDerivativeTrue(){_calcRzeroDerivative=true;};
   void setCalcRzeroDerivativeFalse(){_calcRzeroDerivative=false;};
+
+  // set methods for deltaWFM for use with SWIG and numpy.i
+  void setDeltaWFM(double* IN_ARRAY2, int DIM1, int DIM2);
+  void unsetDeltaWFM();
 
   // Public variables (make some of the input variables Public
   int ipar_nEle,ipar_rzero,ipar_bkgd,ipar_ZernikeFirst,ipar_ZernikeLast;
@@ -256,6 +272,7 @@ protected:
   Matrix _pupilMask;
   Real _pupilSNorm;
   Matrix _pupilWaveZernike;
+  Matrix _pupilWaveZernikePlusDelta;
   
   // atmosphere arrays
   Matrix _rAtmos,_shftrAtmos;
@@ -264,6 +281,7 @@ protected:
 
   // Psf arrays
   MatrixC _calcG,_calcGstar;
+  Matrix _magG,_phaseG;
   Matrix _psfOptics;
   MatrixC _ftsOptics;  
 
@@ -290,6 +308,10 @@ protected:
 
   // DonutEngine for use in rzero Derivative calculation
   DonutEngine* _anotherDonutEngine;
+
+  // flag and data for deltaWFM
+  bool _usingDeltaWFM;
+  Matrix _deltaWFM;
     
 
 };

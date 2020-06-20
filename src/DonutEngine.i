@@ -40,6 +40,8 @@ namespace std {
 %apply (double* IN_ARRAY2, int DIM1, int DIM2) {(double* weight, int my, int mx)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* par, int n)};
 %apply (double* IN_ARRAY2, int DIM1, int DIM2) {(double* wfm, int nx, int ny)};
+%apply (double* IN_ARRAY1, int DIM1, double* IN_ARRAY2, int DIM2, int DIM3) {(double* par, int n, double* dwfm, int nx, int ny)};
+
 
 // Include the header file to be wrapped
 %include "DonutEngine.h"
