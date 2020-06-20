@@ -31,3 +31,9 @@ class wavefrontmap(object):
             zout[iZactual-nZernikeFirst] = self.interpDict[iZ](x,y)
 
         return zout
+
+    def getArray(self,x,y,iZactual):
+        # x,y can be arrays and will return an array of Zernike values for coefficient iZactual
+        iZ = iZactual - 1
+        zout = self.interpDict[iZ](x,y)
+        return zout

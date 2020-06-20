@@ -71,6 +71,9 @@ class donutana(object):
                            "z13PointsFile":"",
                            "z14PointsFile":"",
                            "z15PointsFile":"",
+                           "zPointsDataFrame":"",
+                           "zVarPattern":"ZERN%d",
+                           "zPointsList":[4,5,6,7,8],
                            "nInterpGrid":8,
                            "interpMethod":"idw",
                            "methodVal":None,
@@ -185,15 +188,22 @@ class donutana(object):
             self.paramDict["z4PointsFile"] = self.paramDict["zPointsFile"]
 
         # build the reference meshes
-        for iZ in range(4,15+1):
-            name = "z%dPointsFile" % (iZ)
-            title = "Zernike %d" % (iZ)
-            if self.paramDict[name] != "":
-                # check that the file exists!
-                if os.path.isfile(self.paramDict[name]):
-                    theMesh = PointMesh(self.coordList,self.gridDict,pointsFile=self.paramDict[name],myMethod=self.paramDict["interpMethod"],methodVal=self.paramDict["methodVal"],title=title)
-                    meshName = "z%dMesh" % iZ
-                    self.meshDict[meshName] = theMesh
+        if self.paramDict["zPointsDataFrame"]!="":        
+            for iZ in self.paramDict["zPointsList"]:
+                title = "Zernike %d" % (iZ)
+                theMesh = PointMesh(self.coordList,self.gridDict,pointsDataFrame=self.paramDict["zPointsDataFrame"],myMethod=self.paramDict["interpMethod"],methodVal=self.paramDict["methodVal"],title=title,columnsDataFrame=['EXTNAME','XDECAM','YDECAM',self.paramDict["zVarPattern"] % (iZ)])
+                meshName = "z%dMesh" % iZ
+                self.meshDict[meshName] = theMesh
+        else:
+            for iZ in range(4,15+1):
+                name = "z%dPointsFile" % (iZ)
+                title = "Zernike %d" % (iZ)
+                if self.paramDict[name] != "":
+                    # check that the file exists!
+                    if os.path.isfile(self.paramDict[name]):
+                        theMesh = PointMesh(self.coordList,self.gridDict,pointsFile=self.paramDict[name],myMethod=self.paramDict["interpMethod"],methodVal=self.paramDict["methodVal"],title=title)
+                        meshName = "z%dMesh" % iZ
+                        self.meshDict[meshName] = theMesh
 
         # matrix for Hexapod calculation
         self.alignmentMatrix = numpy.matrix(self.paramDict["alignmentMatrix"])
@@ -443,7 +453,7 @@ class donutana(object):
             resultsKeyName = "%sResultDict" % (key.replace("Mesh",""))
             meshName = key
             if key=="z4Mesh":
-                print("Python 3 debugging: %r"%self.meshDict)
+                #print("Python 3 debugging: %r"%self.meshDict)
                 dictOfResults[resultsKeyName] = self.fitToRefMesh(self.meshDict[meshName],dictOfMeshesCopy[meshName],self.zangleconv)
             elif key=="rzeroMesh":
                 dictOfResults[resultsKeyName] = self.analyzeRzero(dictOfMeshesCopy["rzeroMesh"],dictOfMeshesCopy["chi2Mesh"],dictOfMeshesCopy["neleMesh"])

@@ -12,6 +12,7 @@ from scipy.interpolate import griddata
 from scipy.spatial import cKDTree
 from donutlib.IDWInterp import IDWInterp
 from donutlib.decamutil import decaminfo
+from donutlib.wavefrontmap import wavefrontmap
 import bisect
 
 try:
@@ -48,14 +49,14 @@ class PointMesh(object):
         # read in pointsArray from file, use pandas now
         dataPoints = pd.read_csv(fileName, delim_whitespace=True,
                     header=None,
-                    dtype={'Sensor': '|S3', 'x': numpy.float64, 'y': numpy.float64,
+                    dtype={'Sensor': '|S', 'x': numpy.float64, 'y': numpy.float64,
                            'z': numpy.float64, 'w': numpy.float64},
                     names=['Sensor', 'x', 'y', 'z', 'w'])
 
         # convert the raw pandas format to a dictionary keyed by sensor name
         # containing a numpy array of x,y,z,w
         self.pointsArray = {}
-        dataPoints['Sensor'] = dataPoints['Sensor'].str.decode('utf-8')
+        dataPoints['Sensor'] = dataPoints['Sensor']  ### remove this now  .str.decode('utf-8')
         for iCoord in self.coordList:
             selone = (dataPoints['Sensor']==iCoord)
             xarr = numpy.array(dataPoints[selone]['x'].tolist())
@@ -65,6 +66,48 @@ class PointMesh(object):
             arr = numpy.dstack([xarr,yarr,zarr,warr])[0]   #also numpy.array(zip( ))  works too
             self.pointsArray[iCoord] = arr
 
+    def readPointsFromDataFrameFile(self,dfFileName,sensorName,xName,yName,zernName,wgtName):
+
+        # open data frame
+        df = pd.read_pickle(dfFileName)
+
+        # convert the raw pandas format to a dictionary keyed by sensor name
+        # containing a numpy array of x,y,z,w
+        self.pointsArray = {}
+        for iCoord in self.coordList:
+            ok = (df[sensorName] == iCoord)
+            dfCoord = df[ok]
+            xarr = dfCoord[xName].values
+            yarr = dfCoord[yName].values
+            zarr = dfCoord[zernName].values
+            if wgtName != None:
+                warr = dfCoord[wgtName].values
+            else:
+                n = zarr.shape[0]
+                warr = numpy.zeros((n))
+            arr = numpy.dstack([xarr,yarr,zarr,warr])[0]   #also numpy.array(zip( ))  works too
+            self.pointsArray[iCoord] = arr
+            
+    def readPointsFromDataFrame(self,df,sensorName,xName,yName,zernName,wgtName):
+
+        # convert the raw pandas format to a dictionary keyed by sensor name
+        # containing a numpy array of x,y,z,w
+        self.pointsArray = {}
+        for iCoord in self.coordList:
+            ok = (df[sensorName] == iCoord)
+            dfCoord = df[ok]
+            xarr = dfCoord[xName].values
+            yarr = dfCoord[yName].values
+            zarr = dfCoord[zernName].values
+            if wgtName != None:
+                warr = dfCoord[wgtName].values
+            else:
+                n = zarr.shape[0]
+                warr = numpy.zeros((n))
+            arr = numpy.dstack([xarr,yarr,zarr,warr])[0]   #also numpy.array(zip( ))  works too
+            self.pointsArray[iCoord] = arr          
+            
+
     def checkMethod(self,myMethod,methodVal=None):
         if self.myMethod=='sbs' or self.myMethod=='rbf' or self.myMethod=='tmean' or self.myMethod=='grid' or self.myMethod == "idw" or self.myMethod == "bmedian":
             ok = True
@@ -72,7 +115,7 @@ class PointMesh(object):
             ok = False
         return ok            
 
-    def __init__(self,coordList,gridArray,pointsArray=None,pointsFile=None,myMethod='sbs',methodVal=None,debugFlag=False,title=""):
+    def __init__(self,coordList,gridArray,pointsArray=None,pointsFile=None,pointsDataFrame=None,myMethod='sbs',methodVal=None,debugFlag=False,title="",columnsDataFrame=None):
         """ initialize the class
         """
         self.debugFlag = debugFlag
@@ -104,8 +147,10 @@ class PointMesh(object):
             self.pointsArray = pointsArray.copy()
         elif pointsFile!=None:
             self.readPointsFromFile(pointsFile)
-        else:
-            print("PointMesh: no input points")
+        elif type(pointsDataFrame) == str:
+            self.readPointsFromDataFrameFile(pointsDataFrame,columnsDataFrame[0],columnsDataFrame[1],columnsDataFrame[2],columnsDataFrame[3],None)
+        else:  # terrible code here, if pointDataFrame is a string, assume its a file, otherwise assume its the DataFrame object
+            self.readPointsFromDataFrame(pointsDataFrame,columnsDataFrame[0],columnsDataFrame[1],columnsDataFrame[2],columnsDataFrame[3],None)
 
         # construct the interpolation grid for each coordinate system
         self.myMethod = myMethod
@@ -131,6 +176,45 @@ class PointMesh(object):
             self.interpPresent = True
             self.makeInterpolation(self.myMethod,self.methodVal)
         
+    ## def __init__(self,coordList,gridArray,dfFileName,sensorName='EXTNAME',xName='XDECAM',yName='YDECAM',zernName='ZERN4',wgtName='None',myMethod='rbf',methodVal=None,debugFlag=False,title=""):
+    ##     """ initialize the class, with a Pandas DataFrame with columns used for the data
+    ##     """
+    ##     self.debugFlag = debugFlag
+
+    ##     self.title = title
+
+    ##     self.nCoord = len(coordList)
+    ##     self.coordList = coordList
+
+    ##     # vignetting  HARDCODED
+    ##     self.radiusVignetted = 225.0
+
+    ##     # decam info
+    ##     self.decam = decaminfo()
+
+    ##     # Array with interpolation grid size and number of points
+    ##     # should contain a 4 tuple of [ny,ylo,yhi,nx,xlo,xhi] for each nCoord
+    ##     # these ylo,yhi and xlo,xhi should be the region EDGES
+    ##     self.gridArray = gridArray.copy()
+        
+    ##     # contains an array of Points for each nCoord
+    ##     # [npoints,0] is the X value
+    ##     # [npoints,1] is the Y value
+    ##     # [npoints,2] is the Z value
+    ##     # [npoints,3] is the Weight value
+    ##     # the arrays are stored in a Python dictionary, keyed by nCoord index
+    ##     # NOTE:  nothing in this code enforces that pointArray has this content!!!
+
+    ##     # fill pointsArray from DataFrame
+    ##     self.pointsArray = readPointsFromDataFrame(dfFileName,sensorName,xName,yName,zernName,wgtName)
+        
+    ##     # construct the interpolation grid for each coordinate system
+    ##     self.myMethod = myMethod
+    ##     self.methodVal = methodVal
+    ##     self.interpPresent = False
+    ##     if self.checkMethod(myMethod,methodVal):
+    ##         self.interpPresent = True
+    ##         self.makeInterpolation(self.myMethod,self.methodVal)
 
 
     def makeGrid(self,ny,ylo,yhi,nx,xlo,xhi):
@@ -319,14 +403,15 @@ class PointMesh(object):
                 return Z
 
         elif self.myMethod == "bmedian":
-            #if self.interpBMedian[iCoord] != None:
-            xEdge,yEdge = self.interpEdges[iCoord]
-            xbin = numpy.digitize(x,xEdge[0,:]) - 1
-            ybin = numpy.digitize(y,yEdge[:,0]) - 1
-            return self.interpBMedian[iCoord][ybin,xbin]
-            #else:
-            #    Z = numpy.zeros(x.shape)
-            #    return Z
+            try:
+                xEdge,yEdge = self.interpEdges[iCoord]
+                xbin = numpy.digitize(x,xEdge[0,:]) - 1
+                ybin = numpy.digitize(y,yEdge[:,0]) - 1
+                return self.interpBMedian[iCoord][ybin,xbin]
+            except:
+                print("doInterp: no interpBMedian at ",iCoord)
+                Z = numpy.zeros(x.shape)
+                return Z
 
         elif self.myMethod == "grid":
             # unfortunately griddata needs to be filled with the points each time
@@ -746,12 +831,10 @@ class PointMesh(object):
             return     'x=%1.4f, y=%1.4f               '%(x, y)
 
             
-
-
-
-    def plotMeshMPL2D(self,zmin=None,zmax=None,title="",coordList=None,overlay=False,overlayC=None,cmap=cm.jet):
+    def plotMeshMPL2D(self,zmin=None,zmax=None,title="",coordList=None,overlay=False,overlayC=None,cmap=cm.jet,interactiveFlag=False,subtFunc=None):
         """ plot the Mesh
         """
+        plt.interactive(interactiveFlag)  
 
         # get coordList
         if coordList == None:
@@ -800,6 +883,12 @@ class PointMesh(object):
             #XVig = numpy.ma.masked_where(R>self.radiusVignetted,X)
             #YVig = numpy.ma.masked_where(R>self.radiusVignetted,Y)
             Z = self.interpValues[iCoord]
+
+            if subtFunc != None:
+                # flatten Xcen and Ycen for use here, then reshape the result
+                Zsubt = subtFunc(Xcen.flatten(),Ycen.flatten()).reshape(Xcen.shape)
+                Z = Z - Zsubt
+
             ZVig = numpy.ma.masked_where(Rcen>self.radiusVignetted,Z)
 
             self.cset = self.ax.pcolor(X, Y, ZVig, cmap=cmap, norm=anorm)
@@ -822,9 +911,45 @@ class PointMesh(object):
                     
 
         # plot it!
-        plt.show()
+        # plt.show() # dont do this in non interactive mode
 
         return self.fig,self.ax,self.cset
+
+
+    def calcMeshMPL2D(self,coordList=None):
+        """ calculate the bin values etc ala plotMeshMPL2D
+        """
+        # get coordList
+        if coordList == None:
+            coordList = self.coordList
+        
+        # summary dicts to return
+        X_all = {}
+        Y_all = {}
+        Xcen_all = {}
+        Ycen_all = {}
+        Z_all = {}
+        ZVig_all = {}
+
+        # loop over Extensions
+        for iCoord in coordList:
+                
+            # pcolor needs X,Y values of the edges of the bins...
+            X,Y = self.interpEdges[iCoord]
+            Xcen,Ycen = self.interpGrids[iCoord]
+            Rcen = numpy.sqrt(Xcen*Xcen + Ycen*Ycen)
+            Z = self.interpValues[iCoord]
+            ZVig = numpy.ma.masked_where(Rcen>self.radiusVignetted,Z)
+
+            X_all[iCoord] = X
+            Y_all[iCoord] = Y
+            Xcen_all[iCoord] = Xcen
+            Ycen_all[iCoord] = Ycen
+            Z_all[iCoord] = Z
+            ZVig_all[iCoord] = ZVig
+
+        return X_all,Y_all,Xcen_all,Ycen_all,Z_all,ZVig_all
+
 
 
 
@@ -960,7 +1085,7 @@ class PointMesh(object):
                 wList.append(point[3])
         
         # output python dictionary of points to text file
-        dataArray = numpy.array(list(zip(sensorList,xList,yList,zList,wList)),dtype=[('Sensor','|S3'),('x','float'),('y','float'),('z','float'),('w','float')])
+        dataArray = numpy.array(list(zip(sensorList,xList,yList,zList,wList)),dtype=[('Sensor','U3'),('x','float'),('y','float'),('z','float'),('w','float')])
         numpy.savetxt(fileName,dataArray,fmt=("%3.3s","%12.5f","%12.5f","%12.5f","%12.5f"))
 
 

@@ -1,7 +1,7 @@
 #
 # Utility methods for DECam
 #
-import numpy
+import numpy as np
 from collections import OrderedDict
 
 class decaminfo(object):
@@ -92,16 +92,28 @@ class decaminfo(object):
 
         return infoDict
     
+    def mkArraybyNum(self):
+        infoArr = np.zeros((71,3)) # so that x,y,faflag = infoArr[ccdnum,:] 
+        for ccdname in self.infoDict.keys():
+            infoArr[self.infoDict[ccdname]['CCDNUM'],0] = self.infoDict[ccdname]['xCenter']
+            infoArr[self.infoDict[ccdname]['CCDNUM'],1] = self.infoDict[ccdname]['yCenter']
+            if self.infoDict[ccdname]['FAflag']:
+                infoArr[self.infoDict[ccdname]['CCDNUM'],2] = 1
+            else:
+                infoArr[self.infoDict[ccdname]['CCDNUM'],2] = 0
+
+        return infoArr
 
     def __init__(self,**inputDict):
 
         self.infoDict = self.info()
         self.mmperpixel = 0.015
         self.rClear = 225.0
+        self.infoArrbyNum = self.mkArraybyNum()
 
     def __getstate__(self):
         stateDict = {}
-        keysToPickle = ['infoDict','mmperpixel','rClear']
+        keysToPickle = ['infoDict','mmperpixel','rClear','infoArrbyNum']
         for key in keysToPickle:
             stateDict[key] = self.__dict__[key]
         return stateDict
@@ -128,6 +140,22 @@ class decaminfo(object):
         # calculate positions
         xPos = ccdinfo["xCenter"] + (float(ix)-xpixHalfSize+0.5)*self.mmperpixel
         yPos = ccdinfo["yCenter"] + (float(iy)-ypixHalfSize+0.5)*self.mmperpixel
+
+        return xPos,yPos
+
+    def getPositionByNum(self,ccdnum,ix,iy):
+        """ return the x,y position in [mm] for a given CCD and pixel number                                                                                       
+        note that the ix,iy are Image pixels - overscans removed - and start at zero                                                                            
+        make sure this code is vectorizable...
+        """
+
+        # CCD size in pixels, special code for Focus sensors
+        xpixHalfSize = 1024.
+        ypixHalfSize = numpy.where(self.infoArrbyNum[ccdnum,2]==1,1024.,2048.)
+
+        # calculate positions                                                                                                                                      
+        xPos = self.infoArrbyNum[ccdnum,0] + (float(ix)-xpixHalfSize+0.5)*self.mmperpixel
+        yPos = self.infoArrbyNum[ccdnum,1] + (float(iy)-ypixHalfSize+0.5)*self.mmperpixel
 
         return xPos,yPos
 
