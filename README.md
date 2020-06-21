@@ -12,7 +12,7 @@ procedures yet).  You'll need to point to your python, cfitsio and fftw.
 
 1. cd src
 2. make swig
-3. make or on SLAC computers: bsub -W 0:10:00 -o make.log make
+3. make
 4. add   YourArea/Donut  to PYTHONPATH
 5. cd ../test
 6. python test.py
