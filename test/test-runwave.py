@@ -1,9 +1,11 @@
+
 import matplotlib
 matplotlib.rcParams['agg.path.chunksize'] = 10000
 from matplotlib import pyplot as plt
 
 import numpy as np
 import scipy as sp
+import pickle
 
 from donutlib.donutfit import donutfit
 from donutlib.wavefit import wavefit
@@ -23,7 +25,7 @@ df.setupFit(**fitDict)
 
 df.gFitFunc.closeFits()
 
-# now fit an extra component of the wavefront, desribed by a mesh of points
+# now fit an extra component of the wavefront, described by a mesh of points
 inputDict = {"outputPrefix":"wavetest","tolerance":3.0,"defineGrid":False}
 
 wfit = wavefit(df,**inputDict)
@@ -40,7 +42,6 @@ wfit.doFit()
 
 # get the results
 wfit.outFit()
-
 
 
 #----
@@ -85,34 +86,34 @@ wfit.outFit()
 
 # make star with and without
 
-plt.interactive(True)
+# plt.interactive(True)
 
-gfit = wfit.gFitFunc
-par = gfit.getParCurrent()
-par[5] = .1
-gfit.calcAll(par)
-star_withdelta = gfit.getvImage()
+# gfit = wfit.gFitFunc
+# par = gfit.getParCurrent()
+# par[5] = .1
+# gfit.calcAll(par)
+# star_withdelta = gfit.getvImage()
 
-f = plt.figure()
-plt.imshow(star_withdelta,origin='lower',interpolation='None')
+# f = plt.figure()
+# plt.imshow(star_withdelta,origin='lower',interpolation='None')
 
-gfit.unsetDeltaWFM()
+# gfit.unsetDeltaWFM()
 
-zero_dwfm = np.zeros((512,512))
-gfit.setDeltaWFM(zero_dwfm)
+# zero_dwfm = np.zeros((512,512))
+# gfit.setDeltaWFM(zero_dwfm)
 
-gfit.calcAll(par)
-star_withoutdelta = gfit.getvImage()
+# gfit.calcAll(par)
+# star_withoutdelta = gfit.getvImage()
 
-f = plt.figure()
-plt.imshow(star_withoutdelta,origin='lower',interpolation='None')
+# f = plt.figure()
+# plt.imshow(star_withoutdelta,origin='lower',interpolation='None')
 
-diff = (star_withdelta - star_withoutdelta)/np.sum(star_withoutdelta)
-f = plt.figure()
-plt.imshow(diff,origin='lower',interpolation='None')
+# diff = (star_withdelta - star_withoutdelta)/np.sum(star_withoutdelta)
+# f = plt.figure()
+# plt.imshow(diff,origin='lower',interpolation='None')
 
 
-pwzpd = gfit.getvPupilWaveZernikePlusDelta()
-pwz = gfit.getvPupilWaveZernike()
-pd = pwz - pwzpd
+# pwzpd = gfit.getvPupilWaveZernikePlusDelta()
+# pwz = gfit.getvPupilWaveZernike()
+# pd = pwz - pwzpd
 
