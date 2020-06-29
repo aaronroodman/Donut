@@ -24,10 +24,21 @@ df.setupFit(**fitDict)
 df.gFitFunc.closeFits()
 
 # now fit an extra component of the wavefront, desribed by a mesh of points
-inputDict = {"outputPrefix":"testregular","tolerance":3.0}
+inputDict = {"outputPrefix":"wavetest","tolerance":3.0,"defineGrid":False}
 
 wfit = wavefit(df,**inputDict)
+
+# setup initial values
+values = np.zeros(wfit.npar)
+for ipar in range(wfit.npar):
+    ix,iy = wfit.coarsegrid[ipar]  # in case we want starting values to vary with x,y
+    values[ipar] = 0.0
+wfit.setupCoarseGrid(values)
+
+# do the fit
 wfit.doFit()
+
+# get the results
 wfit.outFit()
 
 

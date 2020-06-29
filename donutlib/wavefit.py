@@ -23,7 +23,7 @@ class wavefit(object):
         # init contains all initializations which are done only once for all fits
         # parameters in fixParamArray1 are nEle,rzero,bkgd,Z2,Z3,Z4,....Z11
         
-        self.paramDict = {"outputPrefix":"test","printLevel":2,"maxIterations":100,"spacing":16,"chi2factor1":1.e5,"maxwavevalue":0.5,"tolerance":0.1}
+        self.paramDict = {"outputPrefix":"test","printLevel":2,"maxIterations":100,"spacing":16,"chi2factor1":1.e5,"maxwavevalue":0.5,"tolerance":0.1,"defineGrid":True}
 
         # search for key in inputDict, change defaults
         self.paramDict.update(inputDict)
@@ -82,8 +82,28 @@ class wavefit(object):
         
         # do initial setup of Minuit parameters
 
-        # status/limit arrays for Minuit parameters
-        self.startingParam = numpy.zeros(self.npar)
+        if self.paramDict["defineGrid"]:
+            # status/limit arrays for Minuit parameters
+            self.startingParam = numpy.zeros(self.npar)
+            self.errorParam = 0.01 * numpy.ones(self.npar)
+            self.loParam = -1.0 * numpy.ones(self.npar) * self.paramDict["maxwavevalue"]
+            self.hiParam = numpy.ones(self.npar) * self.paramDict["maxwavevalue"]
+            self.paramStatusArray = numpy.zeros(self.npar)   # store =0 Floating, =1 Fixed
+
+            # Set starting values and step sizes for parameters
+            # (note that one can redefine the parameters, so this method can be called multiple times)
+            self.parNames = []
+            for ipar in range(self.npar):
+                self.parNames.append("Grid_%d_%d" % (self.finegrid[ipar][0],self.finegrid[ipar][1]))
+                self.gMinuit.DefineParameter(ipar,"Grid_%d_%d" % (self.finegrid[ipar][0],self.finegrid[ipar][1]),self.startingParam[ipar],self.errorParam[ipar],self.loParam[ipar],self.hiParam[ipar])
+
+        # other setup
+        self.nCallsCalcAll = 0
+
+
+    def setupCoarseGrid(self,values):
+        # set starting values of coarse grid
+        self.startingParam = values
         self.errorParam = 0.01 * numpy.ones(self.npar)
         self.loParam = -1.0 * numpy.ones(self.npar) * self.paramDict["maxwavevalue"]
         self.hiParam = numpy.ones(self.npar) * self.paramDict["maxwavevalue"]
@@ -96,9 +116,9 @@ class wavefit(object):
             self.parNames.append("Grid_%d_%d" % (self.finegrid[ipar][0],self.finegrid[ipar][1]))
             self.gMinuit.DefineParameter(ipar,"Grid_%d_%d" % (self.finegrid[ipar][0],self.finegrid[ipar][1]),self.startingParam[ipar],self.errorParam[ipar],self.loParam[ipar],self.hiParam[ipar])
 
-        # other setup
-        self.nCallsCalcAll = 0
 
+
+                
     def chisq(self,npar, gin, f, par, iflag ):
 
         # convert par to a numpy array
@@ -242,41 +262,41 @@ class wavefit(object):
         hduListOutput.append(primaryOutput)
         
         # calculated Donut
-        calcHdu = pyfits.ImageHDU(self.gFitFunc.getvImage())
+        calcHdu = pyfits.ImageHDU(self.gFitFunc.getvImage(),name="Model_Image")
         hduListOutput.append(calcHdu)
 
         # original image
-        imageHdu = pyfits.ImageHDU(self.imgarrayc)
+        imageHdu = pyfits.ImageHDU(self.imgarrayc,name="Original_Image")
         hduListOutput.append(imageHdu)
             
         # diff Donut - Calc
-        diffHdu = pyfits.ImageHDU(self.imgarrayc-self.gFitFunc.getvImage())
+        diffHdu = pyfits.ImageHDU(self.imgarrayc-self.gFitFunc.getvImage(),name="Image-Model")
         hduListOutput.append(diffHdu)
 
         # Chi2 Donut-Calc
-        chi2Hdu = pyfits.ImageHDU(self.pullsq)
+        chi2Hdu = pyfits.ImageHDU(self.pullsq,name="Chi2 Image-Model")
         hduListOutput.append(chi2Hdu)
 
         # Wavefront map - Zernike
-        waveHdu = pyfits.ImageHDU(self.pupilMask*self.gFitFunc.getvPupilWaveZernike())
+        waveHdu = pyfits.ImageHDU(self.pupilMask*self.gFitFunc.getvPupilWaveZernike(),name="Zernike_Wavefront")
         hduListOutput.append(waveHdu)
 
         # Wavefront map - Plus Delta
         totalwavefront = self.pupilMask*self.gFitFunc.getvPupilWaveZernikePlusDelta()
-        waveplusHdu = pyfits.ImageHDU(totalwavefront)
+        waveplusHdu = pyfits.ImageHDU(totalwavefront,name="Total_Wavefront")
         hduListOutput.append(waveplusHdu)
 
         # Wavefront map - Delta
         deltawavefront = self.pupilMask*(self.gFitFunc.getvPupilWaveZernikePlusDelta()-self.gFitFunc.getvPupilWaveZernike())
-        wavedeltaHdu = pyfits.ImageHDU(deltawavefront)
+        wavedeltaHdu = pyfits.ImageHDU(deltawavefront,name="FineGrid_Wavefront")
         hduListOutput.append(wavedeltaHdu)
 
         # Wavefront map - Delta coarse
-        wavedeltacoarseHdu = pyfits.ImageHDU(self.paramWave)
+        wavedeltacoarseHdu = pyfits.ImageHDU(self.paramWave,name="CoarseGrid_Wavefront")
         hduListOutput.append(wavedeltacoarseHdu)
 
         # Wavefront map - Delta coarse errors
-        wavedeltaerrcoarseHdu = pyfits.ImageHDU(self.paramWaveErr)
+        wavedeltaerrcoarseHdu = pyfits.ImageHDU(self.paramWaveErr,name="Sigma_CoarseGrid_Wavefront")
         hduListOutput.append(wavedeltaerrcoarseHdu)
         
         # file names for output 
