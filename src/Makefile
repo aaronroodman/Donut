@@ -46,10 +46,10 @@ else
 		CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC	
 #CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
 		LD = g++
-		LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(XRAY_SOFTDIR)/cfitsio/3.43/lib' -Wl,-rpath,'$(XRAY_SOFTDIR)/fftw/3.3.6/lib'
+		LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(AJRSOFT)/cfitsio/lib' -Wl,-rpath,'$(AJRSOFT)/fftw/lib' -FPIC
 
-		LIBS = -L$(XRAY_SOFTDIR)/cfitsio/3.43/lib -L$(XRAY_SOFTDIR)/fftw/3.3.6/lib  -L/usr/lib64 -L$(ANACONDA)/lib/python3.7 -lcfitsio -lfftw3 -lm
-		INCS = -I$(XRAY_SOFTDIR)/cfitsio/3.43/include -I$(XRAY_SOFTDIR)/fftw/3.3.6/include -I$(ANACONDA)/include/python3.7m -I$(ANACONDA)/lib/python3.7/site-packages/numpy/core/include
+		LIBS = -L$(AJRSOFT)/cfitsio/lib -L$(AJRSOFT)/fftw/lib  -L/usr/lib64 -L$(ANACONDA)/lib/python3.7 -lcfitsio -lfftw3 -lm
+		INCS = -I$(AJRSOFT)/cfitsio/include -I$(AJRSOFT)/fftw/include -I$(ANACONDA)/include/python3.7m -I$(ANACONDA)/lib/python3.7/site-packages/numpy/core/include
 
 		SW = swig
 

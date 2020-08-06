@@ -862,7 +862,7 @@ void DonutEngine::fillPar(Real* par){
     }
 
     if (_statePupilMask && _statePupilFunc && _stateAtmos){
-      if (_debugFlag || _printLevel>=2 ){
+      if (_printLevel>=2 ){
 	std::cout << "DonutEngine: no states have changed?" << std::endl;
       }
     }
@@ -934,8 +934,7 @@ void DonutEngine::calcPupilMask(){
       Real filtExchArcBoxYmax = 0.369;
       Real filtExchArcBoxYmin = 0.320;
       Real spiderWidth = 0.019 * (1462.526/4010.)/2.0;  // use 19mm thick
-      //spiderWidth = 0.050 * (1462.526/4010.)/2.0;  // added May 15, 2014, try 50mm thick, actually works pretty well
-      Real spiderSlope = 3.01e-4;
+      Real spiderSlope = 3.01e-4;  
 
       // now loop over all bins, and build the pupil
       bool spiderMask(false);  //x1true mean pupil==1 (ie. clear)
@@ -976,12 +975,20 @@ void DonutEngine::calcPupilMask(){
 	double yyy = _yaxis(i) - _zemaxToDECamSignFlip * spiderSlope * _yDECam;
 	double dxprime = xxx * cos(_M_PI_4) - yyy * sin(_M_PI_4);
 	double dyprime = xxx * sin(_M_PI_4) + yyy * cos(_M_PI_4);
+
+	// allow control over each of 4 spider arms
+
 	
-	if ( fabs(dxprime)<spiderWidth ||  fabs(dyprime)<spiderWidth ){
+	// all 4 legs
+	if ( (fabs(dxprime)<spiderWidth*7. && dyprime>apertureRadius[0]) || 
+	     (fabs(dxprime)<spiderWidth*3.5 && dyprime<-apertureRadius[0]) || 
+	     (dxprime>apertureRadius[0] && fabs(dyprime)<spiderWidth*3.5) ||
+	     (dxprime<-apertureRadius[0] && fabs(dyprime)<spiderWidth*3.5) ) {
 	  spiderMask = false;
 	} else {
 	  spiderMask = true;
 	}
+
 		
 	// combine annulus, spider and filter Exchanger
 	if (spiderMask && annulusMask && filtExchMask){
