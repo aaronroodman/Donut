@@ -16,18 +16,18 @@ df = donutfit(**fitinitDict)
 
 # fit first donut
 fitDict  = {}
-#fitDict["inputFile"] = 'DECam_00236392.S4.0001.stamp.fits'
-fitDict["inputFile"] = 'bigdonuts_00236392.S4.1.stamp.fits'
-fitDict["outputPrefix"] = '/u/ec/roodman/kipacdisk/Donuts/bigdonuts/bigdonuts_runwave_00236392.S4.1'
+fitDict["inputFile"] = 'DECam_00236392.S4.0003.stamp.fits'
+#fitDict["inputFile"] = 'bigdonuts_00236392.S4.1.stamp.fits'
+fitDict["outputPrefix"] = '/u/ec/roodman/kipacdisk/Donuts/bigdonuts/DECam_runwave_00236392.S4.0003'
 fitDict["inputrzero"] = 0.125
 fitDict["inputZernikeDict"] = {"S4":[0.0,0.0,53.0],"None":[0.0,0.0,11.0]}
 df.setupFit(**fitDict)
 
 df.gFitFunc.closeFits()
 
-if False:
+if True:
     # now fit an extra component of the wavefront, described by a mesh of points
-    inputDict = {"outputPrefix":"wavetest","tolerance":3.0,"defineGrid":False}
+    inputDict = {"outputPrefix":"wavetest","tolerance":3.0,"defineGrid":False,"spacing":64}
 
     wfit = wavefit(df,**inputDict)
 

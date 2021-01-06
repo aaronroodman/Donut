@@ -151,7 +151,7 @@ class decaminfo(object):
 
         # CCD size in pixels, special code for Focus sensors
         xpixHalfSize = 1024.
-        ypixHalfSize = numpy.where(self.infoArrbyNum[ccdnum,2]==1,1024.,2048.)
+        ypixHalfSize = np.where(self.infoArrbyNum[ccdnum,2]==1,1024.,2048.)
 
         # calculate positions                                                                                                                                      
         xPos = self.infoArrbyNum[ccdnum,0] + (float(ix)-xpixHalfSize+0.5)*self.mmperpixel
@@ -186,8 +186,8 @@ class decaminfo(object):
         for ext in list(self.infoDict.keys()):
             ccdinfo = self.infoDict[ext]
             # is this x,y inside this chip?
-            nxdif = numpy.abs( (xPos - ccdinfo["xCenter"]) / self.mmperpixel )
-            nydif = numpy.abs( (yPos - ccdinfo["yCenter"]) / self.mmperpixel )
+            nxdif = np.abs( (xPos - ccdinfo["xCenter"]) / self.mmperpixel )
+            nydif = np.abs( (yPos - ccdinfo["yCenter"]) / self.mmperpixel )
 
             # CCD size in pixels
             if ccdinfo["FAflag"]:

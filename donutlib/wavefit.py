@@ -163,7 +163,6 @@ class wavefit(object):
         # return result    
         f[0] = chisquared
 
-
     def doFit(self):
         
         # arglist is for the parameters in Minuit commands
@@ -197,7 +196,7 @@ class wavefit(object):
         if self.paramDict["printLevel"]>=1:
             print('wavefit: Number of CalcAll calls = ',self.nCallsCalcAll)
 
-    def outFit(self,postfix="",identifier=""):
+    def outFit(self,postfix=".wave.donut.fits",identifier=""):
 
         # get more fit details from MINUIT
         amin, edm, errdef = ctypes.c_double(0.18), ctypes.c_double(0.19), ctypes.c_double(0.20)
@@ -303,7 +302,7 @@ class wavefit(object):
         outName = self.paramDict["outputPrefix"] 
 
         # write out fits file
-        outFile =  outName + ".wave.fits"
+        outFile =  outName + postfix
         if self.paramDict["printLevel"]>=1:
             hduListOutput.info()
         hduListOutput.writeto(outFile,overwrite=True)
