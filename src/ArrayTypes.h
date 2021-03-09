@@ -14,6 +14,7 @@ typedef double Real;
 typedef std::complex<double> Complex;
 typedef Array::array1<Real> Vector;
 typedef Array::array2<Real> Matrix;
+typedef Array::array2<int> MatrixI;
 typedef Array::array2<Complex> MatrixC;
 typedef Array::array3<Real> AofMatrix;
 

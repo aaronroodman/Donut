@@ -57,7 +57,8 @@ public:
   void resetTimers();
   void printTimers();
   Vector& getvParCurrent(){return _parCurrent;};  
-  Vector& getvDerivatives(){return _dChi2dpar;};  
+  Vector& getvDerivatives(){return _dChi2dpar;};
+  Vector& getvGridDerivatives(){return _dChi2dgrid;};
   void savePar();
   void printOptions();
   void closeFits();
@@ -67,11 +68,20 @@ public:
   void calcAll(double* par, int n, double* dwfm, int nx, int ny);
   void calcDerivatives(double* image, int ny, int nx, double* weight, int my, int mx);
   void getParCurrent(double** ARGOUTVIEW_ARRAY1, int* DIM1);  
-  void getDerivatives(double** ARGOUTVIEW_ARRAY1, int* DIM1);  
+  void getDerivatives(double** ARGOUTVIEW_ARRAY1, int* DIM1);
+  void getGridDerivatives(double** ARGOUTVIEW_ARRAY1, int* DIM1);
   void setXYDECam(double x, double y){_xDECam = x; _yDECam = y;};
   //void setXYDESI(double thetax, double thetay){_xDESI=thetax;  _yDESI=thetay;}; // added to handle DESI's geometric differences from DECam
   void fillPar(double* par, int n);
   void calcWFMtoImage(double* IN_ARRAY2, int DIM1, int DIM2);
+  void initWavefrontGrid(int spacing);
+  // make method for WavefrontGrid
+  void makeWavefrontGrid(Vector& gridArr);
+  void makeWavefrontGrid(double* IN_ARRAY1, int DIM1);
+
+  void calcGridDerivatives(Real* image, Real* weight);
+  void calcGridDerivatives(double* image, int ny, int nx, double* weight, int my, int mx);
+
 
   // getter methods returning Matrix (caution!: these return a reference, so don't their object)
   Matrix& getXaxis(){return _xaxis;}
@@ -122,23 +132,32 @@ public:
   // VString getVNames(){return parNames;}
   // VString getVTitles(){return parTitles;}
   double getScaleFactor(){return (double) _scaleFactor;};
+  int getnGrid(){return (int) _nGrid;};
 
   // set methods
   void setCalcRzeroDerivativeTrue(){_calcRzeroDerivative=true;};
   void setCalcRzeroDerivativeFalse(){_calcRzeroDerivative=false;};
+  void setUseWavefrontGridTrue(){_useWavefrontGrid=true;};
+  void setUseWavefrontGridFalse(){_useWavefrontGrid=false;};
 
   // set methods for deltaWFM for use with SWIG and numpy.i
   void setDeltaWFM(double* IN_ARRAY2, int DIM1, int DIM2);
   void unsetDeltaWFM();
 
+
+
   // Public variables (make some of the input variables Public
-  int ipar_nEle,ipar_rzero,ipar_bkgd,ipar_ZernikeFirst,ipar_ZernikeLast;
+  int ipar_nEle,ipar_rzero,ipar_bkgd,ipar_ZernikeFirst,ipar_ZernikeLast,ipar_GridFirst,ipar_GridLast;
   int npar;
   int _nbin;
   int _nPixels;
   int _pixelOverSample;
   VString parNames;
   VString parTitles;
+  int _nbinGrid;
+  int _nGrid;
+  int _spacing;
+
   // calling statistics
   int nCallsCalcAll,nCallsCalcDerivative;
   int nZernikeSize;
@@ -162,6 +181,11 @@ protected:
   void initStateMachine();
   void defineParams();
 
+  // other internal methods
+  void makeFineGrid();
+  void getBinsFromGrid(int iGrid, Matrix& gridDeriv);
+  MatrixC calcQQQtilde(Matrix& Qpixels);
+  
   // internal methods
   void fillPar(double* par);
   void calcPupilMask();
@@ -205,6 +229,7 @@ protected:
   std::string _inputPupilMask;
   int _zemaxToDECamSignFlip;
   bool _calcRzeroDerivative;
+  bool _useWavefrontGrid;
 
   // telescope parameters, set from _iTelescope
   Real _outerRadius;
@@ -260,8 +285,13 @@ protected:
 
   // FFT grid arrays
   Matrix _xaxis,_yaxis;
-  Matrix _rho,_theta; 
+  Matrix _rho,_theta;
 
+  // Wavefront Grid index arrays - integer index into xaxis,yaxis
+  MatrixI _xaxisGrid,_yaxisGrid;
+  // Wavefront Grid arrays
+  Matrix _coarseGrid,_fineGrid;
+  
   // arrays for pupil
   MatrixC _pupilFunc,_pupilFuncStar;
 
@@ -302,6 +332,7 @@ protected:
 
   // Derivatives
   Vector _dChi2dpar;
+  Vector _dChi2dgrid;
 
   // Fits file pointer for debug output
   fitsfile *_fptr;

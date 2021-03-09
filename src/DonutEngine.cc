@@ -115,6 +115,7 @@ void DonutEngine::fillOptions(MapStoS inputMapS, MapStoI inputMapI, MapStoD inpu
   defaultMapI["gridCalcMode"] = 1;
   defaultMapI["zemaxToDECamSignFlip"] = 1;   //CHANGED DEFAULT to positive 1 on 10/4/2012 AJR
   defaultMapI["calcRzeroDerivative"] =0;
+  defaultMapI["useWavefrontGrid"] =0;
 
   MapStoD defaultMapD;
   defaultMapD["waveLength"] = 700.0e-9;
@@ -170,6 +171,7 @@ void DonutEngine::fillOptions(MapStoS inputMapS, MapStoI inputMapI, MapStoD inpu
   _gridCalcMode = bool(optionMapI["gridCalcMode"]);
   _zemaxToDECamSignFlip = optionMapI["zemaxToDECamSignFlip"];
   _calcRzeroDerivative = optionMapI["calcRzeroDerivative"];
+  _useWavefrontGrid = optionMapI["useWavefrontGrid"];
 
   _waveLength = optionMapD["waveLength"];
   _scaleFactor = optionMapD["scaleFactor"];
@@ -201,7 +203,9 @@ void DonutEngine::printOptions(){
     std::cout << "scaleFactor = " << _scaleFactor << std::endl;
     std::cout << "inputPupilMask = " << _inputPupilMask << std::endl; 
     std::cout << "zemaxToDECamSignFlip = " << _zemaxToDECamSignFlip << std::endl; 
-    std::cout << "calcRzeroDerivative = " << _calcRzeroDerivative << std::endl; 
+    std::cout << "calcRzeroDerivative = " << _calcRzeroDerivative << std::endl;
+    std::cout << "useWavefrontGrid = " << _useWavefrontGrid << std::endl; 
+
   }
 
 
@@ -252,6 +256,96 @@ void DonutEngine::init(){
   }
 
 }
+
+void DonutEngine::initWavefrontGrid(int spacing){
+
+  // setup Wavefront Grid for fitting
+  _spacing = spacing;
+  _nbinGrid = _nbin/_spacing;
+
+  _xaxisGrid.Dimension(_nbinGrid,_nbinGrid);
+  _yaxisGrid.Dimension(_nbinGrid,_nbinGrid);
+  _xaxisGrid.Activate(alignR);
+  _yaxisGrid.Activate(alignR);
+
+  _coarseGrid.Dimension(_nbinGrid,_nbinGrid);
+  _coarseGrid.Activate(alignR);
+
+  _fineGrid.Dimension(_nbin,_nbin);
+  _fineGrid.Activate(alignR);
+  
+  // build the Pupil Mask
+  // ASSUME this is already done: setXYDECam(x,y);
+  calcPupilMask();
+
+  // loop over pupil Mask, identifying non-zero points, with appropriate spacing
+  _nGrid = 0;
+  for (int j=0;j<_nbin;j+=_spacing){
+    int ind = j*_nbin;
+    for (int i=0;i<_nbin;i+=_spacing){
+      int index = ind + i;
+      if (_pupilMask(index)!=0.0){
+	_xaxisGrid(_nGrid) = i;  //set equal to i,j index values
+	_yaxisGrid(_nGrid) = j;
+	_nGrid++;
+      }
+    }
+  }
+
+  // initialize Derviative Vector
+  _dChi2dgrid.Dimension(_nGrid);
+  _dChi2dgrid.Activate();
+  
+}
+
+
+void DonutEngine::makeWavefrontGrid(double* grid, int nx){
+  Vector gridArray(nx);
+  for (int i=1;i<nx;i++){
+    gridArray(i) = grid[i];
+  }
+  makeWavefrontGrid(gridArray);
+}
+
+
+void DonutEngine::makeWavefrontGrid(Vector& gridArr){
+
+  // input array of Grid values build the fineGrid (not using the coarseGrid, since there is no interpolation...)
+
+  // init 
+  for (int i=0;i<_nbinGrid*_nbinGrid;i++){
+    _coarseGrid(i) = 0.;
+  }
+  for (int i=0;i<_nbin*_nbin;i++){
+    _fineGrid(i) = 0.;
+  }
+
+  // loop over Coarse Grid points
+  for (int k=0;k<_nGrid;k++){
+    double value = gridArr[k];
+
+    // use this value to fill in nspacing*nspacing values - no interpolation, just a dumb copy
+    for (int j=_yaxisGrid(k);j<_yaxisGrid(k)+_spacing;j++){
+      int ind = j*_nbin;
+      for (int i=_xaxisGrid(k);i<_xaxisGrid(k)+_spacing;i++){
+	int index = ind + i;
+	if (_pupilMask(index)!=0.0){
+	  _fineGrid(index) = value;
+	}
+      }
+    }
+  }
+
+  // install in dWFM
+  setDeltaWFM(_fineGrid);  
+  
+}
+
+void DonutEngine::makeFineGrid(){
+
+  // not used now...
+}
+
 
 void DonutEngine::calcParameters(int iT){
 
@@ -1493,20 +1587,20 @@ void DonutEngine::calcDerivatives(double* image, int ny, int nx,
   calcDerivatives(image,weight);
 }
 
-void DonutEngine::calcDerivatives(Real* image, Real* weight){
+void DonutEngine::calcGridDerivatives(double* image, int ny, int nx, 
+				  double* weight, int my, int mx){
+  calcGridDerivatives(image,weight);
+}
 
-  nCallsCalcDerivative++;
+MatrixC DonutEngine::calcQQQtilde(Matrix& Qpixels){
 
-  clock_t start = clock();
-
-  // calculate derivatives, put in the _dChi2dpar array
+ // calculate derivatives, put in the _dChi2dpar array
 
   // needed arrays:  calcImage, ftsAtmos, ftsPixel, calcG, calcGstar
   // local arrays (save time by avoiding re-reserving memory?):
   //     Qpixels, Q, Qtilde, QQ, QQtilde, QQQ QQQtilde
 
   // arrays we will need
-  Matrix Qpixels(_nPixels,_nPixels);
   Matrix Q(_nbin,_nbin);
   Q = 0.0;
   MatrixC Qtilde(_nbin,_nbin);
@@ -1514,16 +1608,6 @@ void DonutEngine::calcDerivatives(Real* image, Real* weight){
   MatrixC QQtilde(_nbin,_nbin);
   MatrixC QQQ(_nbin,_nbin);
   MatrixC QQQtilde(_nbin,_nbin);
-
-  clock_t stop = clock();
-  _timeDerivatives0 += (stop-start)/(Real)CLOCKS_PER_SEC;
-
-  start = clock();
-
-  // calculate Q = W(I-N)
-  for (int i=0;i<_nPixels*_nPixels;i++){
-    Qpixels(i) = weight[i] * (_calcImage(i) - image[i]);
-  }
 
   // pepper the image on a full-size grid
   int index(0);
@@ -1576,8 +1660,29 @@ void DonutEngine::calcDerivatives(Real* image, Real* weight){
   Real QQandQQQnorm = QQnorm * QQQnorm;
   QQQtilde *= QQandQQQnorm;
 
-  stop = clock();
-  _timeDerivatives1 += (stop-start)/(Real)CLOCKS_PER_SEC;
+  return QQQtilde;
+  
+}
+ 
+void DonutEngine::calcDerivatives(Real* image, Real* weight){
+
+  nCallsCalcDerivative++;
+  
+  clock_t start = clock();
+
+  // arrays we will need
+  Matrix Qpixels(_nPixels,_nPixels);
+  
+  // calculate Q = W(I-N)
+  for (int i=0;i<_nPixels*_nPixels;i++){
+    Qpixels(i) = weight[i] * (_calcImage(i) - image[i]);
+  }
+  
+  // calculate matrix for chi2 derivative calculation
+  MatrixC QQQtilde = calcQQQtilde(Qpixels);
+
+  clock_t stop = clock();
+  _timeDerivatives0 += (stop-start)/(Real)CLOCKS_PER_SEC;
 
   start = clock();
 
@@ -1682,6 +1787,7 @@ void DonutEngine::calcDerivatives(Real* image, Real* weight){
     _dChi2dpar[ipar_ZernikeFirst+iZ] = dChi2dzern[iZ];
   }
 
+  
   // print out Derivatives
   if (_printLevel>=2){
     std::cout << "DonutEngine: Derivatives are = " ;
@@ -1698,6 +1804,94 @@ void DonutEngine::calcDerivatives(Real* image, Real* weight){
 }
 
 
+void DonutEngine::calcGridDerivatives(Real* image, Real* weight){
+
+  // calculate Grid Derivatives
+
+   nCallsCalcDerivative++;
+  
+  clock_t start = clock();
+
+  // arrays we will need
+  Matrix Qpixels(_nPixels,_nPixels);
+  
+  // calculate Q = W(I-N)
+  for (int i=0;i<_nPixels*_nPixels;i++){
+    Qpixels(i) = weight[i] * (_calcImage(i) - image[i]);
+  }
+  
+  // calculate matrix for chi2 derivative calculation
+  MatrixC QQQtilde = calcQQQtilde(Qpixels);
+
+  clock_t stop = clock();
+  _timeDerivatives0 += (stop-start)/(Real)CLOCKS_PER_SEC;
+
+  start = clock();
+
+  // dg*(x)/dgrid * QQQtilde
+  // Vector dChi2dgrid(_nGrid);  // make this a data member...
+  
+  // Loop over all grid parameters
+  Complex minustwopiI(0.0,-2.0*_M_PI);
+  Real minustwopi(-2.0*_M_PI);
+  for (int iGrid=0;iGrid<_nGrid;iGrid++){
+
+    Matrix dgdalpha(_nbin,_nbin);
+    dgdalpha = 0.0;
+    getBinsFromGrid(iGrid,dgdalpha);
+
+    ////dChi2dalpha[iZ] = 2.0 * _nEle *  (dgdalphaStar * QQQtilde).sum()  + 2.0 * _nEle *  (dgdalpha * QQQstartilde).sum()
+    ////is equal to    dChi2dzern[iZ] = 4.0 * _nEle *  ((dgdalphaStar * QQQtilde).real).sum()
+    _dChi2dgrid[iGrid] = 0.0;
+    for (int i=0;i<_nbin*_nbin;i++){
+      _dChi2dgrid[iGrid] -= imag(_pupilFuncStar(i) * dgdalpha(i) * QQQtilde(i));  //note its -= not += !!
+    }
+    _dChi2dgrid[iGrid] *= (4.0 * _nEle * minustwopi * 86.8692) ; 
+    // why oh why am I off by this weird number??!!
+    //    dChi2dzern[iZ] *= 86.8692;
+
+    // need extra scaling  with scaleFactor - 3 factors, 1 for Zernikes, 2 for grid
+    _dChi2dgrid[iGrid] = _dChi2dgrid[iGrid]/(_scaleFactor*_scaleFactor*_scaleFactor);
+
+  }
+
+ 
+  // fill return array - decide how to do this...
+
+  
+  // print out Derivatives
+  if (_printLevel>=2){
+    std::cout << "DonutEngine: Derivatives are = " ;
+    for (int iGrid=0;iGrid<_nGrid;iGrid++){
+      std::cout << _dChi2dgrid[iGrid] << " ";
+    }
+    std::cout << std::endl;
+  }
+
+
+  stop = clock();
+  _timeDerivatives2 += (stop-start)/(Real)CLOCKS_PER_SEC;
+
+  
+}
+
+void DonutEngine::getBinsFromGrid(int iGrid, Matrix& gridDeriv){
+
+  // get Matrix with 1's for FFT grid points which depend on the iGrid'th wavefront Grid point
+
+  //gridDeriv = 0.0;
+  for (int j=_yaxisGrid(iGrid);j<_yaxisGrid(iGrid)+_spacing;j++){
+    int ind = j*_nbin;
+    for (int i=_xaxisGrid(iGrid);i<_xaxisGrid(iGrid)+_spacing;i++){
+      int index = ind + i;
+      if (_pupilMask(index)!=0.0){
+	gridDeriv(index) = 1.;
+      }
+    }
+  }
+  
+}
+ 
     // void calcImageDerivatives(self,paramArray,paramErrArray,fixParamArray,image,weight):
     //     // calc dI(u)/dalpha for all parameters (even r0) and return maxtrix
 
@@ -1913,6 +2107,11 @@ void DonutEngine::getParCurrent(double** ARGOUTVIEW_ARRAY1, int* DIM1){
 void DonutEngine::getDerivatives(double** ARGOUTVIEW_ARRAY1, int* DIM1){
   *DIM1 = _dChi2dpar.Nx();
   *ARGOUTVIEW_ARRAY1 = _dChi2dpar;
+}
+
+void DonutEngine::getGridDerivatives(double** ARGOUTVIEW_ARRAY1, int* DIM1){
+  *DIM1 = _dChi2dgrid.Nx();
+  *ARGOUTVIEW_ARRAY1 = _dChi2dgrid;
 }
 
 
