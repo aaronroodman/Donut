@@ -373,8 +373,11 @@ class donutfit(object):
         self.startingtime = time.clock()
 
         # Now ready for minimization step
-        self.gMinuit.SetMaxIterations(self.paramDict["maxIterations"])
-        self.gMinuit.Migrad()
+        #self.gMinuit.SetMaxIterations(self.paramDict["maxIterations"])
+        #self.gMinuit.Migrad()
+        arglist[0] = self.paramDict["maxIterations"]
+        arglist[1] = 0.1    # tolerance, default is 0.1
+        self.gMinuit.mnexcm( "MIGRAD", arglist, 2, ierflg )
 
         # done, check elapsed time
         firsttime = time.clock()

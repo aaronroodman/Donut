@@ -1,6 +1,6 @@
 import time
 import os
-import numpy
+import numpy as np
 import sys
 import cv2
 from collections import OrderedDict
@@ -58,7 +58,7 @@ class wavefit(object):
         self.sigmasq = self.df.imgarray + constantError2
         self.weight = 1.0/self.sigmasq
 
-        self.imgarrayc = self.df.imgarray - bkg        
+        self.imgarrayc = self.df.imgarray###  - bkg        # WHY subtract background here?!
 
         # setup MINUIT
         self.gMinuit = ROOT.TMinuit(self.npar)
@@ -84,11 +84,11 @@ class wavefit(object):
 
         if self.paramDict["defineGrid"]:
             # status/limit arrays for Minuit parameters
-            self.startingParam = numpy.zeros(self.npar)
-            self.errorParam = 0.01 * numpy.ones(self.npar)
-            self.loParam = -1.0 * numpy.ones(self.npar) * self.paramDict["maxwavevalue"]
-            self.hiParam = numpy.ones(self.npar) * self.paramDict["maxwavevalue"]
-            self.paramStatusArray = numpy.zeros(self.npar)   # store =0 Floating, =1 Fixed
+            self.startingParam = np.zeros(self.npar)
+            self.errorParam = 0.01 * np.ones(self.npar)
+            self.loParam = -1.0 * np.ones(self.npar) * self.paramDict["maxwavevalue"]
+            self.hiParam = np.ones(self.npar) * self.paramDict["maxwavevalue"]
+            self.paramStatusArray = np.zeros(self.npar)   # store =0 Floating, =1 Fixed
 
             # Set starting values and step sizes for parameters
             # (note that one can redefine the parameters, so this method can be called multiple times)
@@ -104,10 +104,10 @@ class wavefit(object):
     def setupCoarseGrid(self,values):
         # set starting values of coarse grid
         self.startingParam = values
-        self.errorParam = 0.01 * numpy.ones(self.npar)
-        self.loParam = -1.0 * numpy.ones(self.npar) * self.paramDict["maxwavevalue"]
-        self.hiParam = numpy.ones(self.npar) * self.paramDict["maxwavevalue"]
-        self.paramStatusArray = numpy.zeros(self.npar)   # store =0 Floating, =1 Fixed
+        self.errorParam = 0.01 * np.ones(self.npar)
+        self.loParam = -1.0 * np.ones(self.npar) * self.paramDict["maxwavevalue"]
+        self.hiParam = np.ones(self.npar) * self.paramDict["maxwavevalue"]
+        self.paramStatusArray = np.zeros(self.npar)   # store =0 Floating, =1 Fixed
 
         # Set starting values and step sizes for parameters
         # (note that one can redefine the parameters, so this method can be called multiple times)
@@ -121,8 +121,8 @@ class wavefit(object):
                 
     def chisq(self,npar, gin, f, par, iflag ):
 
-        # convert par to a numpy array
-        parArr = numpy.zeros(self.npar)
+        # convert par to a np array
+        parArr = np.zeros(self.npar)
         for ipar in range(self.npar):
             parArr[ipar] = par[ipar]
             
@@ -130,9 +130,9 @@ class wavefit(object):
 
         # build coarse wavefront
         nCoarse = int(self._nbin/self._spacing)
-        paramWave = numpy.zeros((nCoarse,nCoarse))
+        paramWave = np.zeros((nCoarse,nCoarse))
         for ipar in range(self.npar):
-            i,j = self.coarsegrid[ipar]
+            j,i = self.coarsegrid[ipar]  #now consistent with assignment in this line: self.coarsegrid.append([j,i])
             paramWave[j,i] = parArr[ipar] 
 
         # resize to full wavefront            
@@ -154,7 +154,9 @@ class wavefit(object):
         
         # printout
         if self.paramDict["printLevel"]>=2:
-            print('donutfit: Chi2 = ',chisquared)
+            # only print every 100 times
+            if np.mod(self.nCallsCalcAll,100)==0:
+                print('wavefit: Chi2 = ',chisquared," nCalls ",self.nCallsCalcAll)
 
         # save parameters for next iteration
         self._savePar = parArr
@@ -181,7 +183,7 @@ class wavefit(object):
         #self.gMinuit.Migrad()
 
         # Migrad
-        arglist[0] = 10000  # maxcalls
+        arglist[0] = self.paramDict["maxIterations"]
         arglist[1] = self.paramDict["tolerance"]    # tolerance, default is 0.1
         self.gMinuit.mnexcm( "MIGRAD", arglist, 2, ierflg )
         
@@ -196,7 +198,7 @@ class wavefit(object):
         if self.paramDict["printLevel"]>=1:
             print('wavefit: Number of CalcAll calls = ',self.nCallsCalcAll)
 
-    def outFit(self,postfix=".wave.donut.fits",identifier=""):
+    def outFit(self,postfix="wave",identifier=""):
 
         # get more fit details from MINUIT
         amin, edm, errdef = ctypes.c_double(0.18), ctypes.c_double(0.19), ctypes.c_double(0.20)
@@ -210,8 +212,8 @@ class wavefit(object):
         # get fit values and errors
         aVal = ctypes.c_double(0.21)
         errVal = ctypes.c_double(0.22)
-        self.paramArray = numpy.zeros(self.npar)
-        self.paramErrArray = numpy.zeros(self.npar)
+        self.paramArray = np.zeros(self.npar)
+        self.paramErrArray = np.zeros(self.npar)
         for ipar in range(self.npar):
             self.gMinuit.GetParameter(ipar,aVal,errVal)
             self.paramArray[ipar] = aVal.value
@@ -222,10 +224,10 @@ class wavefit(object):
 
         # build coarse wavefront
         nCoarse = int(self._nbin/self._spacing)
-        self.paramWave = numpy.zeros((nCoarse,nCoarse))
-        self.paramWaveErr = numpy.zeros((nCoarse,nCoarse))
+        self.paramWave = np.zeros((nCoarse,nCoarse))
+        self.paramWaveErr = np.zeros((nCoarse,nCoarse))
         for ipar in range(self.npar):
-            i,j = self.coarsegrid[ipar]
+            j,i = self.coarsegrid[ipar]  # make this j,i; must be consistent!
             self.paramWave[j,i] = self.paramArray[ipar]
             self.paramWaveErr[j,i] = self.paramErrArray[ipar]
                         
@@ -298,11 +300,14 @@ class wavefit(object):
         wavedeltaerrcoarseHdu = pyfits.ImageHDU(self.paramWaveErr,name="Sigma_CoarseGrid_Wavefront")
         hduListOutput.append(wavedeltaerrcoarseHdu)
         
-        # file names for output 
-        outName = self.paramDict["outputPrefix"] 
-
-        # write out fits file
-        outFile =  outName + postfix
+        # file names for output are
+        # outputPrefix + identifier
+        if identifier!="" :
+            outName = self.paramDict["outputPrefix"] + "." + identifier + "." + postfix
+        else:
+            outName = self.paramDict["outputPrefix"] + "." + postfix
+        outFile = outName + ".donut.fits"
+                
         if self.paramDict["printLevel"]>=1:
             hduListOutput.info()
         hduListOutput.writeto(outFile,overwrite=True)

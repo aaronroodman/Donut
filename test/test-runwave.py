@@ -26,7 +26,7 @@ df.setupFit(**fitDict)
 df.gFitFunc.closeFits()
 
 # now fit an extra component of the wavefront, described by a mesh of points
-inputDict = {"outputPrefix":"wavetest","tolerance":3.0,"defineGrid":False}
+inputDict = {"outputPrefix":fitDict["outputPrefix"],"maxIterations":30000,"tolerance":1000.0,"defineGrid":False}
 
 wfit = wavefit(df,**inputDict)
 
