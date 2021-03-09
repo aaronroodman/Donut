@@ -1,4 +1,3 @@
-from __future__ import print_function
 import time
 import os
 import numpy
@@ -38,6 +37,8 @@ class donutfit(object):
                           "maxIterations":1000,
                           "calcRzeroDerivative":True,
                           "wavefrontMap":None,
+                          "doGridFit":False,
+                          "spacing":64,
                           "gain":1.0}
 
         # search for key in inputDict, change defaults
@@ -284,8 +285,19 @@ class donutfit(object):
             self.doFit()
             outputDict = self.outFit(postfix[iFit])
 
+        # if desired do the Wavefront fit next
+        if self.paramDict["doGridFit"]:
+
+            self.initWavefrontGrid(self.paramDict['spacing'])
+            self.initWavefrontFit()
+            self.doWavefrontFit()
+            self.outWavefrontFit("gridfit")
+            
         # return last output Dictionary
         return outputDict
+
+
+    
 
     def updateFit(self,fixParamArray,xDECam,yDECam):
         # fix parameters as desired
@@ -378,6 +390,7 @@ class donutfit(object):
         arglist[0] = self.paramDict["maxIterations"]
         arglist[1] = 0.1    # tolerance, default is 0.1
         self.gMinuit.mnexcm( "MIGRAD", arglist, 2, ierflg )
+
 
         # done, check elapsed time
         firsttime = time.clock()
@@ -530,5 +543,265 @@ class donutfit(object):
         return resultDict
 
 
+    def initWavefrontGrid(self,spacing):
+        
+        self.gFitFunc.initWavefrontGrid(spacing)
 
+    def initWavefrontFit(self):
+
+        # make a new gMinit object
+        nGrid = self.gFitFunc.getnGrid()
+        self.wMinuit = ROOT.TMinuit(nGrid)
+        self.wMinuit.SetFCN(self.wavechisq)
+
+        # arglist is for the parameters in Minuit commands
+        arglist = array( 'd', 10*[0.] )
+        ierflg =ctypes.c_int(1982)#L ROOT.Long(1982) 
+    
+        # set the definition of 1sigma 
+        arglist[0] = 1.0
+        self.wMinuit.mnexcm( "SET ERR", arglist, 1, ierflg )
+    
+        # turn off Warnings
+        arglist[0] = 0
+        self.wMinuit.mnexcm("SET NOWARNINGS", arglist,0,ierflg)
+    
+        # set printlevel
+        arglist[0] = self.paramDict["printLevel"]
+        self.wMinuit.mnexcm("SET PRINTOUT", arglist,1,ierflg)
+        
+        # do initial setup of Minuit parameters
+        startingwParam = numpy.zeros(nGrid)
+        errorwParam = 0.01 * numpy.ones(nGrid)
+        maxwavevalue = 0.5
+        lowParam = -1.0 * numpy.ones(nGrid) * maxwavevalue
+        hiwParam = numpy.ones(nGrid) * maxwavevalue
+        wparamStatusArray = numpy.zeros(nGrid)   # store =0 Floating, =1 Fixed
+
+        # Set starting values and step sizes for parameters
+        wparamNames = []
+        for ipar in range(nGrid):
+            wparamNames.append("Grid_%d" % (ipar))
+            self.wMinuit.DefineParameter(ipar,"Grid_%d" % (ipar), startingwParam[ipar], errorwParam[ipar],lowParam[ipar],hiwParam[ipar])
+
+        self.nCallsWavefit = 0
+    
+
+    def wavechisq(self,npar,gin,f,par,iflag):
+
+        # convert par to a numpy array
+        nGrid = self.gFitFunc.getnGrid()
+        parArr = numpy.zeros(nGrid)  # convert npar to an integer...
+        for ipar in range(nGrid):
+            parArr[ipar] = par[ipar]
+            
+        # call donutengine to calculate image
+        self.gFitFunc.nCallsCalcAll +=1
+        self.gFitFunc.makeWavefrontGrid(parArr)  # fill deltaWFM from Minuit parameters
+        self.gFitFunc.calcAll(self.gFitFunc.getParCurrent())   # calculate Image  ### BUG - needs fixing to use most recent regular parameters from regular fit
+
+        # write out the image here and quit...
+        if False:
+            vImage = self.gFitFunc.getvImage()
+            ftemp = open('image_%d.npy' % self.gFitFunc.nCallsCalcAll, 'wb')
+            numpy.save(ftemp,vImage)
+            pdb.set_trace()
+        
+        # compare to calculated image
+        diff = self.imgarray - self.gFitFunc.getvImage()
+        self.pullsq = diff*diff/self.sigmasq   
+        chisquared = self.pullsq.sum()
+
+        # printout
+        #if self.paramDict["printLevel"]>=2:
+        print('donutfit: wavechisq Chi2 = ',chisquared)
+
+        # return result    
+        f[0] = chisquared
+
+        # Derivative calculation!
+        if iflag==2 :
+
+            # not currently called in calcAll
+            self.gFitFunc.calcGridDerivatives(self.imgarray,self.weight)
+            dChi2dgrid = self.gFitFunc.getGridDerivatives()
+            
+            gin.SetSize(nGrid)  # need to handle root bug
+            #
+            # fill gin with Derivatives
+            #
+            print("CalcGridDerivatives:")
+            for i in range(nGrid):
+                gin[i] = dChi2dgrid[i]
+                #print(i,gin[i])
+
+        
+    def doWavefrontFit(self):
+
+        # arglist is for the parameters in Minuit commands
+        arglist = array( 'd', 10*[0.] )
+        ierflg = ctypes.c_int(1982) #L ROOT.Long
+
+        # tell Minuit we have derivatives, don't check anymore as long as rzero is fixed
+        arglist[0] = 1  # =1 means never check the gradient
+        #arglist[0] = 0  # =0 means to check gradient each time
+        self.wMinuit.mnexcm( "SET GRADIENT", arglist, 1, ierflg )
+
+        # tell Minuit to use strategy for fastest fits
+        arglist[0] = 0  # was 1
+        self.wMinuit.mnexcm( "SET STRATEGY", arglist, 1, ierflg )
+                
+        # start timer
+        self.startingtime = time.clock()
+
+        # Now ready for minimization step
+        self.wMinuit.SetMaxIterations(self.paramDict["maxIterations"])
+        self.wMinuit.Migrad()
+
+        # done, check elapsed time
+        firsttime = time.clock()
+        self.deltatime = firsttime - self.startingtime
+        if self.paramDict["printLevel"]>=1:
+            print('donutfit: Elapsed time fit = ',self.deltatime)
+
+        # number of calls
+        if self.paramDict["printLevel"]>=1:
+            print('donutfit wavefront: Number of CalcAll calls = ',self.gFitFunc.nCallsCalcAll)
+            print('donutfit wavefront: Number of CalcDerivative calls = ',self.gFitFunc.nCallsCalcDerivative)
+                
+    def outWavefrontFit(self,postfix,identifier=""):
+
+        # get more fit details from MINUIT
+        amin, edm, errdef = ctypes.c_double(0.18), ctypes.c_double(0.19), ctypes.c_double(0.20)
+        nvpar, nparx, icstat = ctypes.c_int(1983), ctypes.c_int(1984), ctypes.c_int(1985)
+        self.wMinuit.mnstat( amin, edm, errdef, nvpar, nparx, icstat )
+        dof = pow(self.gFitFunc._nPixels,2) - nvpar.value
+        if self.paramDict["printLevel"]>=1:
+            mytxt = "amin = %.3f, edm = %.3f,   effdef = %.3f,   nvpar = %.3f,  nparx = %.3f, icstat = %.3f " % (amin.value,edm.value,errdef.value,nvpar.value,nparx.value,icstat.value)   
+            print('donutfit wavefront: ',mytxt)
+
+        # get fit values and errors
+        aVal = ctypes.c_double(0.21)
+        errVal = ctypes.c_double(0.22)
+        self.paramArray = numpy.zeros(self.gFitFunc.getnGrid())
+        self.paramErrArray = numpy.zeros(self.gFitFunc.getnGrid())
+        nGrid = self.gFitFunc.getnGrid()
+        for ipar in range(nGrid):
+            self.wMinuit.GetParameter(ipar,aVal,errVal)
+            self.paramArray[ipar] = aVal.value
+            if errVal.value < 1e9 :
+                self.paramErrArray[ipar] = errVal.value
+            else:
+                self.paramErrArray[ipar] = 0.0
+
+        #copy input header information from input file here except for Standard header stuff
+        stdHeaderDict= {'SIMPLE':0,'BITPIX':0,'NAXIS':0,'NAXIS1':0,'NAXIS2':0,'EXTEND':0}
+        outputHeaderDict = OrderedDict()
+
+        for key in list(self.inputHeader.keys()):
+            if not list(stdHeaderDict.keys()).count(key)>0:
+                outputHeaderDict[key] = self.inputHeader[key]
+                
+        # fill output Dictionary
+        try:
+            if sys.version_info.minor>=7 or sys.version_info.major >= 3:
+                outputDict = OrderedDict()
+        except:
+            outputDict = {}
+
+        outputDict["CHI2"] = float(amin.value)
+        outputDict["DOF"] = int(dof)
+        outputDict["FITSTAT"] = int(icstat.value)
+        outputDict["CLKTIME"] = self.deltatime
+        outputDict["NCALCALL"] = self.gFitFunc.nCallsCalcAll
+        outputDict["NCALCDER"] = self.gFitFunc.nCallsCalcDerivative
+        outputDict["DOF"] = dof
+
+        # do I use this anywhere?
+        #for ipar in range(nGrid):
+        #    outputDict[self.gFitFunc.parNames[ipar]] = float(self.paramArray[ipar])
+        #for ipar in range(nGrid):
+        #    outputDict[self.gFitFunc.parNames[ipar]+"E"] = float(self.paramErrArray[ipar])
+
+        # make a single output file, with multiple extensions
+        # Extension 1:  Calculated Image
+        # Extension 2:  Original Image
+        # Extension 3:  Difference  (if desired)
+        # Extension 4:  Chi2        (if desired)
+        # Extension 5:  Wavefront   (if desired)
+
+        hduListOutput = pyfits.HDUList()
+        primaryOutput = pyfits.PrimaryHDU()
+        primaryHeader = primaryOutput.header
+
+        # fill primary header both with input Header and fit results
+        for key in outputHeaderDict:
+            primaryHeader[key] = outputHeaderDict[key]
+        for key in outputDict:
+            primaryHeader[key] = outputDict[key]
+        hduListOutput.append(primaryOutput)
+        
+        # calculated Donut
+        calcHdu = pyfits.ImageHDU(self.gFitFunc.getvImage())
+        calcHeader = calcHdu.header
+        for key in outputHeaderDict:
+            calcHeader[key] = outputHeaderDict[key]
+        for key in outputDict:
+            calcHeader[key] = outputDict[key]
+        hduListOutput.append(calcHdu)
+
+        # original image
+        imageHdu = pyfits.ImageHDU(self.imgarray)
+        imageHeader = imageHdu.header
+        for key in outputHeaderDict:
+            imageHeader[key] = outputHeaderDict[key]
+        hduListOutput.append(imageHdu)
+            
+        # diff Donut - Calc
+        if self.paramDict["outputDiff"]:
+            diffHdu = pyfits.ImageHDU(self.imgarray-self.gFitFunc.getvImage())
+            diffHeader = diffHdu.header
+            for key in outputHeaderDict:
+                imageHeader[key] = outputHeaderDict[key]
+            hduListOutput.append(diffHdu)
+
+        # Chi2 Donut-Calc
+        if self.paramDict["outputChi2"]:
+            chi2Hdu = pyfits.ImageHDU(self.pullsq)
+            chi2Header = chi2Hdu.header
+            for key in outputHeaderDict:
+                imageHeader[key] = outputHeaderDict[key]
+            hduListOutput.append(chi2Hdu)
+
+
+        # Wavefront map
+        if self.paramDict["outputWavefront"]:
+            waveHdu = pyfits.ImageHDU(self.gFitFunc.getvPupilMask()*self.gFitFunc.getvPupilWaveZernike())
+            waveHeader = waveHdu.header
+            hduListOutput.append(waveHdu)
+            
+        # Wavefront Grid map
+        gridHdu = pyfits.ImageHDU(self.gFitFunc.getvDeltaWFM())
+        gridHeader = gridHdu.header
+        hduListOutput.append(gridHdu)
+
+        # file names for output are
+        # outputPrefix + identifier
+        if identifier!="" :
+            outName = self.fitDict["outputPrefix"] + "." + identifier + "." + postfix
+        else:
+            outName = self.fitDict["outputPrefix"] + "." + postfix
+
+        # write out fits file
+        outFile =  outName + ".donut.fits"
+        if self.paramDict["printLevel"]>=1:
+            hduListOutput.info()
+        hduListOutput.writeto(outFile,overwrite=True)
+
+        # add info from input Header for return
+        outputDict.update(outputHeaderDict)
+        resultDict = {}
+        resultDict.update(outputDict)
+        return resultDict
+    
 
