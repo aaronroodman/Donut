@@ -39,17 +39,16 @@ else
 		SW = swig
 
 	else
-#CFLAGS = -Wall -ansi -g -fPIC
+	 	#CFLAGS = -Wall -ansi -g -fPIC
 # standard:	CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC
 # new, faster, use in queue: CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC  ### but is now failing!!
-# for interactive making use: CFLAGS =  -ansi -O3  -m64  -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2   -fPIC
-		CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC	
-#CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
+# USE THIS 11/1/2022		CFLAGS =  -ansi -O3  -m64 -funroll-loops -fomit-frame-pointer -ffast-math -mfpmath=sse -msse2  -fPIC	
+		CFLAGS =  -ansi -O3  -m64 -march=native -mtune=native -fPIC
 		LD = g++
-		LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(AJRSOFT)/cfitsio/lib' -Wl,-rpath,'$(AJRSOFT)/fftw/lib' -FPIC
+		LDFLAGS = -shared -export-dynamic -Wl,-rpath,'$(ANACONDA)/lib' -Wl,-rpath,'$(KIPACLOCAL)/lib'  -FPIC
 
-		LIBS = -L$(AJRSOFT)/cfitsio/lib -L$(AJRSOFT)/fftw/lib  -L/usr/lib64 -L$(ANACONDA)/lib/python3.7 -lcfitsio -lfftw3 -lm
-		INCS = -I$(AJRSOFT)/cfitsio/include -I$(AJRSOFT)/fftw/include -I$(ANACONDA)/include/python3.7m -I$(ANACONDA)/lib/python3.7/site-packages/numpy/core/include
+		LIBS = -L$(ANACONDA)/lib   -L/usr/lib64 -L$(ANACONDA)/lib/python3.8 -lcfitsio -lfftw3 -lm
+		INCS = -I$(ANACONDA)/include -I$(ANACONDA)/include/python3.8 -I$(KIPACLOCAL)/include
 
 		SW = swig
 

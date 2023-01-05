@@ -14,6 +14,7 @@ from donutlib.IDWInterp import IDWInterp
 from donutlib.decamutil import decaminfo
 from donutlib.wavefrontmap import wavefrontmap
 import bisect
+import fitsio
 
 try:
     from scipy import stats
@@ -66,9 +67,9 @@ class PointMesh(object):
             arr = numpy.dstack([xarr,yarr,zarr,warr])[0]   #also numpy.array(zip( ))  works too
             self.pointsArray[iCoord] = arr
 
-    def readPointsFromDataFrameFile(self,dfFileName,sensorName,xName,yName,zernName,wgtName):
 
-        # open data frame
+    def readPointsFromDataFrameFile(self,dfFileName,sensorName,xName,yName,zernName,wgtName):
+        
         df = pd.read_pickle(dfFileName)
 
         # convert the raw pandas format to a dictionary keyed by sensor name
@@ -912,6 +913,60 @@ class PointMesh(object):
 
         # plot it!
         # plt.show() # dont do this in non interactive mode
+
+        return self.fig,self.ax,self.cset
+
+
+
+    def plotMeshMPL2DPub(self,zmin=None,zmax=None,title="",coordList=None,cmap=cm.viridis,interactiveFlag=False):
+        """ plot the Mesh, pub quality
+        """
+        plt.interactive(interactiveFlag)  
+
+        # get coordList
+        if coordList == None:
+            coordList = self.coordList
+        
+        # reserve a Figure and 3D axes
+        self.fig = plt.figure(figsize=(10,7.5))
+        self.ax = self.fig.gca()
+
+        # factor to convert from mm to arcsec
+        factor = 0.263/0.015 
+
+        # typical WCS is:
+        # v = - factor * X
+        # u = - factor * Y
+
+        # autorange in Z
+        minX,maxX,minY,maxY,minZ,maxZ = self.autoRange(zmin,zmax,coordList=coordList)
+        anorm = colors.Normalize(minZ,maxZ,True)
+
+        # loop over Extensions
+        for iCoord in coordList:
+                
+            # pcolor needs X,Y values of the edges of the bins...
+            X,Y = self.interpEdges[iCoord]
+            Z = self.interpValues[iCoord]
+
+            # convert from X,Y to u,v -- this is hardcoded...
+            Uarr = -factor * numpy.array(Y)
+            U = Uarr.tolist()
+            Varr = -factor * numpy.array(X)
+            V = Varr.tolist()
+
+            # plot it
+            self.cset = self.ax.pcolor(U, V, Z, cmap=cmap, norm=anorm)
+                
+        # set ranges last
+        self.ax.set_xlim(-235.*factor, 235.*factor)
+        self.ax.set_ylim(-235.*factor, 235.*factor)
+
+        # add the colorbar
+        self.fig.colorbar(self.cset)
+
+        # fix aspect ratio
+        self.ax.set_aspect('equal')
 
         return self.fig,self.ax,self.cset
 

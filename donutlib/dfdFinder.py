@@ -66,7 +66,7 @@ def findDonuts(dataAmp,xOffset,inputDict,extName):
     dinfo = decaminfo()
 
     # time it
-    startingTime = time.clock()
+    startingTime = time.time()
 
     
     # list for output of donuts
@@ -224,7 +224,7 @@ def dfdFinder(hdulist,extName,inputDict={}):
     header = hdulist[extName].header   
 
     # time it
-    startingTime = time.clock()
+    startingTime = time.time()
 
     # we only want the image portion, drop the overscan
     # HARDCODED!!!
@@ -241,7 +241,7 @@ def dfdFinder(hdulist,extName,inputDict={}):
     donutListB = findDonuts(dataAmpB,56,defaultDict,extName)
 
     # done
-    print("dfdFinder took ",time.clock()-startingTime," seconds")
+    print("dfdFinder took ",time.time()-startingTime," seconds")
 
     donutList = donutListA + donutListB
     return donutList

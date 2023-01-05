@@ -1,5 +1,5 @@
 //
-// DonutEngine.cc:  Engine to calculate focal plane image from 
+// DonutEngine.cc:  Engine to calculate focal plane image from
 //                  pupil plane Zernike expansion
 // Copyright (C) 2011 Aaron J. Roodman, SLAC National Accelerator Laboratory, Stanford University
 //
@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cmath>
 #include <string>
+#include <algorithm>
 #include <time.h>
 
 // Class header files
@@ -23,7 +24,7 @@ DonutEngine::DonutEngine(MapStoS inputMapS, MapStoI inputMapI, MapStoD inputMapD
   _inputMapS = inputMapS;
   _inputMapI = inputMapI;
   _inputMapD = inputMapD;
-  
+
   fillOptions(inputMapS,inputMapI,inputMapD);
 
   // print if desired
@@ -34,11 +35,11 @@ DonutEngine::DonutEngine(MapStoS inputMapS, MapStoI inputMapI, MapStoD inputMapD
 
 }
 
-//DonutEngine::DonutEngine(int iTelescope, 
-//			 double waveLength, 
-//			 int nZernikeTerms, 
-//			 int nbin, 
-//			 int nPixels, 
+//DonutEngine::DonutEngine(int iTelescope,
+//			 double waveLength,
+//			 int nZernikeTerms,
+//			 int nbin,
+//			 int nPixels,
 //			 const char* outputPrefix,
 //			 bool debugFlag,
 //			 int printLevel,
@@ -61,7 +62,7 @@ DonutEngine::DonutEngine(MapStoS inputMapS, MapStoI inputMapI, MapStoD inputMapD
 //   _pixelOverSample = pixelOverSample;   // scale if desired
 //   _scaleFactor = scaleFactor;  // scale if desired
 //   _inputPupilMask = inputPupilMask;
-//   _zemaxToDECamSignFlip = zemaxToDECamSignFlip;  // use =-1 for x(Zemax) => x(DECam FITs)  AND y(Zemax)=> y(DECam FITs) 
+//   _zemaxToDECamSignFlip = zemaxToDECamSignFlip;  // use =-1 for x(Zemax) => x(DECam FITs)  AND y(Zemax)=> y(DECam FITs)
 //   _calcRzeroDerivative = calcRzeroDerivative;
 //   //   added y flip in code below on 10/3/2012, AJR
 
@@ -201,10 +202,10 @@ void DonutEngine::printOptions(){
     std::cout << "gridCalcMode = " << _gridCalcMode << std::endl;
     std::cout << "pixelOverSample = " << _pixelOverSample << std::endl;
     std::cout << "scaleFactor = " << _scaleFactor << std::endl;
-    std::cout << "inputPupilMask = " << _inputPupilMask << std::endl; 
-    std::cout << "zemaxToDECamSignFlip = " << _zemaxToDECamSignFlip << std::endl; 
+    std::cout << "inputPupilMask = " << _inputPupilMask << std::endl;
+    std::cout << "zemaxToDECamSignFlip = " << _zemaxToDECamSignFlip << std::endl;
     std::cout << "calcRzeroDerivative = " << _calcRzeroDerivative << std::endl;
-    std::cout << "useWavefrontGrid = " << _useWavefrontGrid << std::endl; 
+    std::cout << "useWavefrontGrid = " << _useWavefrontGrid << std::endl;
 
   }
 
@@ -212,7 +213,7 @@ void DonutEngine::printOptions(){
 }
 
 void DonutEngine::init(){
-  
+
   _M_PI = 3.1415926535897931;  //replace with math.h ??
   _M_PI_4 = _M_PI/4.;
 
@@ -230,8 +231,8 @@ void DonutEngine::init(){
       fits_report_error(stderr, status);
     }
   }
-    
-  // setup arrays, parameters for DonutEngine  
+
+  // setup arrays, parameters for DonutEngine
   calcParameters(_iTelescope);
   setupArrays();
   setupStuff();
@@ -251,7 +252,7 @@ void DonutEngine::init(){
 
     inS["outputPrefix"] = "calcDerivative";
     inI["calcRzeroDerivative"] = 0;  //Turn this off, avoid an infinite loop!
-     
+
     _anotherDonutEngine  = new DonutEngine(inS,inI,inD);
   }
 
@@ -263,87 +264,175 @@ void DonutEngine::initWavefrontGrid(int spacing){
   _spacing = spacing;
   _nbinGrid = _nbin/_spacing;
 
-  _xaxisGrid.Dimension(_nbinGrid,_nbinGrid);
-  _yaxisGrid.Dimension(_nbinGrid,_nbinGrid);
-  _xaxisGrid.Activate(alignR);
-  _yaxisGrid.Activate(alignR);
+  _iiGrid.Dimension(_nbinGrid*_nbinGrid);  //we don't need all these points, but dimension to cover space
+  _jjGrid.Dimension(_nbinGrid*_nbinGrid);
+  _iiGrid.Activate(alignR);
+  _jjGrid.Activate(alignR);
+  _iiGrid = 0;
+  _jjGrid = 0;
 
   _coarseGrid.Dimension(_nbinGrid,_nbinGrid);
   _coarseGrid.Activate(alignR);
 
   _fineGrid.Dimension(_nbin,_nbin);
   _fineGrid.Activate(alignR);
-  
+
   // build the Pupil Mask
   // ASSUME this is already done: setXYDECam(x,y);
   calcPupilMask();
 
-  // loop over pupil Mask, identifying non-zero points, with appropriate spacing
-  _nGrid = 0;
-  for (int j=0;j<_nbin;j+=_spacing){
+  // temporary flag for Coarse Grid points
+  MatrixI needPt(_nbinGrid,_nbinGrid);
+  needPt = 0;
+
+  // loop over Fine Grid, identifing the four corners which would be used for extrapolation
+  // and including those as points to be activated in the Coarse Grid
+
+  // loop over Fine Grid space
+  for (int j=0;j<_nbin;j++){
     int ind = j*_nbin;
-    for (int i=0;i<_nbin;i+=_spacing){
+    for (int i=0;i<_nbin;i++){
       int index = ind + i;
       if (_pupilMask(index)!=0.0){
-	_xaxisGrid(_nGrid) = i;  //set equal to i,j index values
-	_yaxisGrid(_nGrid) = j;
+
+	// calculate LowerLeft Coarse grid point
+	float x1(0);
+	int ii1(0);
+	float y1(0);
+	int jj1(0);
+	getCoarseGridPt(i,x1,ii1);
+	getCoarseGridPt(j,y1,jj1);
+
+	//std::cout << "initWavefrontGrid: " << index << " " << i << " " << j << " " << ii1 << " " << jj1 << std::endl;
+	// add LL point
+	if ( (ii1>=0 && ii1<_nbinGrid) && (jj1>=0 && jj1<_nbinGrid) ){
+	  needPt(jj1,ii1) = 1;
+	}
+	// add LR point
+	if ( (ii1+1>=0 && ii1+1<_nbinGrid) && (jj1>=0 && jj1<_nbinGrid) ){
+	  needPt(jj1,ii1+1) = 1;
+	}
+	// add UL point
+	if ( (ii1>=0 && ii1<_nbinGrid) && (jj1+1>=0 && jj1+1<_nbinGrid) ){
+	  needPt(jj1+1,ii1) = 1;
+	}
+	// add UR point
+	if ( (ii1+1>=0 && ii1+1<_nbinGrid) && (jj1+1>=0 && jj1+1<_nbinGrid) ){
+	  needPt(jj1+1,ii1+1) = 1;
+	}
+
+      }
+    }
+  }
+
+  // now add all needed points to Coarse Grid vectors
+  _nGrid = 0;
+
+  // loop over Coarse Grid space
+  for (int jj=0;jj<_nbinGrid;jj++){
+    for (int ii=0;ii<_nbinGrid;ii++){
+      if (needPt(jj,ii)==1){
+	_iiGrid(_nGrid) = ii;
+	_jjGrid(_nGrid) = jj;
+	std::cout << _nGrid << " " << ii << " " << jj << std::endl;
 	_nGrid++;
       }
     }
   }
 
-  // initialize Derviative Vector
+  // initialize Derviative Vector too
   _dChi2dgrid.Dimension(_nGrid);
   _dChi2dgrid.Activate();
-  
+
 }
 
 
+void DonutEngine::getCoarseGridPt(int i, float& x1, int& ii1){
+  // Fine Grid: 0 to _nbin-1
+  // Coarse Grid: 0 to _nbinGrid-1
+  //
+  // place Coarse Grid points in the middle of the corresponding FineGrid region
+  // ie. if Fine is 0-511, Coarse is 0-7, for _spacing=64, then
+  // Coarse=0,1,2...7 corresponds to Fine=32,96,160...480
+  //
+  // given i Fine Grid value, find x1 value of the Coarse Grid point (ie. in Fine grid space) that is below the input.  Also find the CoarseGrid index, ii1
+  //
+  // if i is below the first Coarse Grid point, or above the last Coarse Grid point
+  // then set ii1 such that it and ii1+1 are both contained in the Coarse grid.
+  // This input point will be then reached by extrapolation, not interpolation.
+
+  int halfspace = _spacing/2;
+  ii1 = int((i-halfspace)/_spacing);   // in 0 -> _nbinGrid-1
+  if (ii1<0){ ii1=0;}
+  if (ii1>=_nbinGrid-1){ ii1=_nbinGrid-2; }
+  x1 = ii1*_spacing + halfspace;   // 0 -> _nbin-1
+}
+
 void DonutEngine::makeWavefrontGrid(double* grid, int nx){
   Vector gridArray(nx);
-  for (int i=1;i<nx;i++){
+  for (int i=0;i<nx;i++){
     gridArray(i) = grid[i];
   }
   makeWavefrontGrid(gridArray);
 }
 
-
 void DonutEngine::makeWavefrontGrid(Vector& gridArr){
+  // input 1D array of Grid values
+  // and do bi-linear interpolation to fill _fineGrid array
+  // load that _fineGrid into the DeltaWFM
 
-  // input array of Grid values build the fineGrid (not using the coarseGrid, since there is no interpolation...)
-
-  // init 
-  for (int i=0;i<_nbinGrid*_nbinGrid;i++){
-    _coarseGrid(i) = 0.;
+  // take input gridArr 1D array and
+  // fill _coarseGrid[jj,ii] 2D array using stored _iiGrid,_jjGrid values in Coarse index
+  _coarseGrid = 0.0;  // zero all entries, before filling used ones
+  for (int iGrid=0;iGrid<_nGrid;iGrid++){
+    _coarseGrid(_jjGrid(iGrid),_iiGrid(iGrid)) = gridArr(iGrid);
   }
-  for (int i=0;i<_nbin*_nbin;i++){
-    _fineGrid(i) = 0.;
-  }
 
-  // loop over Coarse Grid points
-  for (int k=0;k<_nGrid;k++){
-    double value = gridArr[k];
+  // loop over Fine grid points
+  for (int j=0;j<_nbin;j++){
+    int ind = j*_nbin;
+    for (int i=0;i<_nbin;i++){
+      int index = ind + i;
+      if (_pupilMask(index)!=0.0){
+	// now find x1,x2=x1+_spacing and y1,y2=y1+_spacing values bracketing i,j
+	// we only need to find the LowerRight point!
+	float x1(0);
+	int ii1(0);
+	float y1(0);
+	int jj1(0);
+	// x1 is in FineSpace and are values of the Coarse grid centers for the ii1 Coarse Grid index
+	getCoarseGridPt(i,x1,ii1);  // Find corresponding LowerRight point
+	getCoarseGridPt(j,y1,jj1);
 
-    // use this value to fill in nspacing*nspacing values - no interpolation, just a dumb copy
-    for (int j=_yaxisGrid(k);j<_yaxisGrid(k)+_spacing;j++){
-      int ind = j*_nbin;
-      for (int i=_xaxisGrid(k);i<_xaxisGrid(k)+_spacing;i++){
-	int index = ind + i;
-	if (_pupilMask(index)!=0.0){
+	// always ii2 = ii1 + 1, jj2 = jj1 + 1   for Coarse index
+	// always x2 = x1 + _spacing, y2 = y1 + _spacing    for Fine Space value of Coarse grid centers
+
+	// bilinear interp distances in FineSpace
+	double t = (i-x1)/_spacing;   // or (i-x1)/(x2-x1)
+	double u = (j-y1)/_spacing;
+
+	// see NR bilinear interpolation
+	// Qyx - access with ArrName[jj,ii] with Coarse index
+	if (jj1>=0 && ii1>=0 && ii1+1<_nbinGrid && jj1+1<_nbinGrid){
+	  double Q11 = _coarseGrid(jj1,ii1);   // check 2d array access...
+	  double Q21 = _coarseGrid(jj1+1,ii1);
+	  double Q12 = _coarseGrid(jj1,ii1+1);
+	  double Q22 = _coarseGrid(jj1+1,ii1+1);
+	  float value = (1.-t)*(1.-u)*Q11 + t*(1.-u)*Q12 + (1.-t)*u*Q21 + t*u*Q22 ;
 	  _fineGrid(index) = value;
+
+	} else {
+	  std::cout << "makeWavefrontGrid: " << ii1 << " " << jj1 << std::endl;
+	  _fineGrid(index) = 0.;
 	}
+
       }
     }
   }
 
-  // install in dWFM
-  setDeltaWFM(_fineGrid);  
-  
-}
+  // insert into DeltaWFM
+  setDeltaWFM(_fineGrid);
 
-void DonutEngine::makeFineGrid(){
-
-  // not used now...
 }
 
 
@@ -365,62 +454,62 @@ void DonutEngine::calcParameters(int iT){
     _lambdaz = _waveLength * _zLength;  //see DES notebook Vol1 pg 78-80
     _fLength = 11.719;
     _pixelSize = 15.0e-6;
-  } else if (iT==1){   
+  } else if (iT==1){
     _outerRadius = 0.29158;
     _innerRadius = 0.122;
     _zLength = 1.696231;
-    _lambdaz = _waveLength * _zLength;  
+    _lambdaz = _waveLength * _zLength;
     _fLength = 11.45784;
-    _pixelSize = 15.0e-6; 
+    _pixelSize = 15.0e-6;
   } else if (iT==2){
     _outerRadius = 1.10874;   // this the radius of the pupil as found in Zemax!
     _innerRadius = 0.61 * _outerRadius;   // 4/4/2016 look at Zemax gives 0.612 - use 0.61 for LSST donuts
     _zLength = 2.734706;
-    _lambdaz = _waveLength * _zLength;  
+    _lambdaz = _waveLength * _zLength;
     _fLength = 10.31007;
     _pixelSize = 10.0e-6;
   } else if (iT==3){
     _outerRadius = 6.5/2.0;
     _innerRadius = 0.352 * _outerRadius; // from Povilas
     _zLength = 34.97;  // F#5.38 from Povilas
-    _lambdaz = _waveLength * _zLength;  
+    _lambdaz = _waveLength * _zLength;
     _fLength = 34.97;
     _pixelSize = 2.0 * 13.5e-6;  // operated in 2x2 mode
   } else if (iT==4){
     _outerRadius = 6.5/2.0;
     _innerRadius = 0.352 * _outerRadius; // from Povilas
     _zLength = 15.47;  // F#2.38 see http://www.lco.cl/telescopes-information/magellan/instruments/imacs/imacs-specs
-    _lambdaz = _waveLength * _zLength;  
+    _lambdaz = _waveLength * _zLength;
     _fLength = 15.47;
     _pixelSize = 1.0 * 15.0e-6;  // operated in 1x1 mode, 15 micron pixels
   } else if (iT==5){
     _outerRadius = 0.892; // from Zemax
     _innerRadius = 0.439; // from outerRadius*<innermajoraxis, innerminoraxis>/<outermajoraxis, outerminoraxis>
     _zLength = 6.523858;  // F#3.66
-    _lambdaz = _waveLength * _zLength;  
+    _lambdaz = _waveLength * _zLength;
     _fLength = 13.92452; //from Zemax
     _pixelSize = 1.0 * 15.0e-6;  // operated in 1x1 mode, 15 micron pixels
 
-  } 
+  }
 
   //
-  //  here we fix the size of the grid bins on the focal plane to be equal to the 
-  //  pixelsize/pixelOverSample. 
+  //  here we fix the size of the grid bins on the focal plane to be equal to the
+  //  pixelsize/pixelOverSample.
   //   (see pg 131 DES vol1 and FFTnotes.pdf)
   //
-  // NOTE added 10/3/2012:  Code will break if _scaleFactor is < 1.0
-  // need to manually adjust scaleFactor to ensure that _scaleFactor > 1.0
+  // NOTE added 10/3/2012:  Code will break if _pupilscale is < 1.0
+  // need to manually adjust scaleFactor to ensure that _pupilscale > 1.0
 
   Real F =  _zLength/(2.* _outerRadius);
   Real lambdaF =  F * _waveLength;
-  
-  if (_gridCalcMode){    
+
+  if (_gridCalcMode){
     _ngridperPixel =  _pixelOverSample;
     _deltaX =  _pixelSize / _ngridperPixel;
     _pupilscale = ( lambdaF / _deltaX) *  _scaleFactor;
     _Lu =  2.0 *  _outerRadius * _pupilscale;
   } else {
-    // when we start from WFM->Focal plane, we need to specify Lu first, 
+    // when we start from WFM->Focal plane, we need to specify Lu first,
     // then find deltaX from it
     // in this case we do interpolation instead of just using every nth grid point
     _Lu = 2.0 * _outerRadius;
@@ -485,11 +574,11 @@ void DonutEngine::makePupilArrays(int nbin,Real lo,Real hi,Real radiusOuter){
   _theta.Activate(alignR);
 
   for (int i=0;i<nbin*nbin;i++){
-    _rho(i) = sqrt(_xaxis(i)*_xaxis(i) + _yaxis(i)*_yaxis(i))/radiusOuter;  
+    _rho(i) = sqrt(_xaxis(i)*_xaxis(i) + _yaxis(i)*_yaxis(i))/radiusOuter;
     _theta(i) = atan2(_yaxis(i),_xaxis(i));
   }
 
-  
+
 }
 
 void DonutEngine::makeXPsf(int nbin,Real lambdaz){
@@ -506,7 +595,7 @@ void DonutEngine::makeXPsf(int nbin,Real lambdaz){
   itricksMGrid(nbin,-1./(2.*deltay),1./(2.*deltay),_xpsf,_ypsf);
   _xpsf *= lambdaz;
   _ypsf *= lambdaz;
-    
+
 }
 
 void DonutEngine::setupArrays(){
@@ -520,7 +609,7 @@ void DonutEngine::setupArrays(){
   _pupilWaveZernike.Dimension(_nbin,_nbin);
   _pupilWaveZernike.Activate(alignR);
 
-  // MUST explicitly zero _pupilWaveZernike 
+  // MUST explicitly zero _pupilWaveZernike
   for (int i=0;i<_nbin*_nbin;i++){
     _pupilWaveZernike(i) = 0.0;
   }
@@ -581,7 +670,7 @@ void DonutEngine::setupArrays(){
   // arrays for deltaWFM
   _deltaWFM.Dimension(_nbin,_nbin);
   _deltaWFM.Activate(alignR);
-    
+
 }
 
 
@@ -605,7 +694,7 @@ void DonutEngine::setupStuff(){
   _fftrtcTempArray.Activate(alignC);
   _fftrtcOutputArray.Activate(alignC);
 
-  
+
 
   // need for debugging
   //_fftrtcInputArray.AtIndex(1,1);
@@ -632,16 +721,16 @@ void DonutEngine::setupStuff(){
   for (int i=0;i<_nbin*_nbin;i++){
     _rAtmos(i) = sqrt(xAtmos(i)*xAtmos(i) + yAtmos(i)*yAtmos(i));
   }
-  _shftrAtmos = _rAtmos;    // deep copy 
+  _shftrAtmos = _rAtmos;    // deep copy
   fftShift(_shftrAtmos); // shifts in place, was InvShift
 
   // initialize flag for deltaWFM
   _usingDeltaWFM = false;
-  
+
 }
 
 void DonutEngine::initStateMachine(){
-        
+
   // State machine flags
   _first = true;
   _statePupilMask = false;
@@ -664,7 +753,7 @@ void DonutEngine::defineParams(){
 
   // build pointers to parameters here
   int ipar = -1;
-  ipar_nEle     = ipar = ipar + 1;  
+  ipar_nEle     = ipar = ipar + 1;
   ipar_rzero	 = ipar = ipar + 1;
   ipar_bkgd     = ipar = ipar + 1;
   ipar_ZernikeFirst = ipar = ipar + 1;
@@ -674,7 +763,7 @@ void DonutEngine::defineParams(){
   // define parameter names here
   parNames.resize(npar);
   parTitles.resize(npar);
-    
+
   parNames[ipar_nEle] = "nele";
   parNames[ipar_rzero] = "rzero";
   parNames[ipar_bkgd] = "bkgd";
@@ -691,7 +780,7 @@ void DonutEngine::defineParams(){
     }
   }
 
-  // array for current parameters 
+  // array for current parameters
   _parCurrent.Dimension(npar);
   _parCurrent.Activate();
 
@@ -714,24 +803,24 @@ void DonutEngine::calcWFMtoImage(double* wfm, int nx, int ny){
   }
   calcWFMtoImage(wfmM);
 }
- 
+
 void DonutEngine::calcWFMtoImage(Matrix& wfm){
-      
+
   // need to fill Par separately
 
-  _statePupilFunc = false; 
-      
+  _statePupilFunc = false;
+
   // State Machine: call each step of the calculation
-  if (!_statePupilMask){ 
+  if (!_statePupilMask){
     calcPupilMask();
-  } 
+  }
   if ( (!_statePupilMask) || (!_statePupilFunc)){
     calcPupilFuncFromWFM(wfm);
     calcOptics();
-  } 
-  if (!_stateAtmos){ 
+  }
+  if (!_stateAtmos){
     calcAtmos();
-  } 
+  }
   if ( (!_statePupilMask) || (!_statePupilFunc) || (!_stateAtmos) ){
     calcConvolute();
     calcPixelate();
@@ -751,9 +840,9 @@ void DonutEngine::setDeltaWFM(double* wfm, int nx, int ny){
   }
   setDeltaWFM(wfmM);
 }
-  
+
 void DonutEngine::setDeltaWFM(Matrix& wfm){
-      
+
   // set the delta WFM contribution
 
   // this flag is used in fillPars and calcPupilFunction
@@ -790,7 +879,7 @@ void DonutEngine::calcPupilFuncFromWFM(Matrix& wfm){
   if (_printLevel>=2){
     std::cout << "DonutEngine: calcPupilFuncFromWFM " << std::endl;
   }
-  
+
   // calculate the pupilFunc(tion) from the WFM
   //  Complex I = Complex(0.0,1.0);
   Complex twopiI = Complex(0.0,2.0*_M_PI);
@@ -806,7 +895,7 @@ void DonutEngine::calcPupilFuncFromWFM(Matrix& wfm){
     }
   }
 
-  if (_debugFlag && nCallsCalcAll<=1){    
+  if (_debugFlag && nCallsCalcAll<=1){
     toFits(_fptr,wfm);
     toFits(_fptr,_pupilFunc);
   }
@@ -817,29 +906,29 @@ void DonutEngine::calcPupilFuncFromWFM(Matrix& wfm){
 }
 
 
-void DonutEngine::calcAll(double* par, int n){  
+void DonutEngine::calcAll(double* par, int n){
   calcAll(par);
 }
 
 void DonutEngine::calcAll(Real* par){
-  
+
   nCallsCalcAll++;
 
-  // fill parameters and determine how much of the calculation to repeat 
+  // fill parameters and determine how much of the calculation to repeat
   fillPar(par);
-        
+
   // State Machine: call each step of the calculation
-  if (!_statePupilMask){ 
+  if (!_statePupilMask){
     calcPupilMask();
-  } 
-  if ( (!_statePupilMask) || (!_statePupilFunc) ){ 
+  }
+  if ( (!_statePupilMask) || (!_statePupilFunc) ){
     calcPupilFunc();
     calcOptics();
-  } 
-  if (!_stateAtmos){ 
+  }
+  if (!_stateAtmos){
     calcAtmos();
-  } 
-  if ( (!_statePupilMask) || (!_statePupilFunc) || (!_stateAtmos) ){ 
+  }
+  if ( (!_statePupilMask) || (!_statePupilFunc) || (!_stateAtmos) ){
     calcConvolute();
     calcPixelate();
   }
@@ -854,7 +943,7 @@ void DonutEngine::calcAll(Real* par){
 
   // save the parameters
   savePar();
-            
+
   if (_printLevel>=2){
     std::cout << "DonutEngine: calcAll is done" << std::endl;
   }
@@ -900,7 +989,7 @@ void DonutEngine::fillPar(Real* par){
   for (int iZ=0;iZ<nZernikeSize;iZ++){
     _ZernikeArr[iZ] = par[ipar_ZernikeFirst+iZ]/_scaleFactor;
   }
-  
+
   if (_printLevel>=2){
     std::cout << "DonutEngine: Parameters (Zernikes scaled) are = " << _nEle << " " << _rzero << " " << _bkgd << " " ;
     for (int iZ=0;iZ<nZernikeSize;iZ++){
@@ -970,25 +1059,25 @@ void DonutEngine::fillPar(Real* par){
 }
 
 void DonutEngine::savePar(){
-    
+
   // save parameter values for the next iteraiton
-  _last_nEle = _nEle;  
+  _last_nEle = _nEle;
   _last_rzero = _rzero;
   _last_bkgd = _bkgd;
-  
+
   for (int iZ=0;iZ<nZernikeSize;iZ++){
     _last_ZernikeArr[iZ] = _ZernikeArr[iZ];
   }
 
   _last_xDECam = _xDECam;
   _last_yDECam = _yDECam;
-  
-}      
+
+}
 
 void DonutEngine::calcPupilMask(){
 
   clock_t start = clock();
-    
+
   if (_printLevel>=2){
     std::cout << "DonutEngine: calcPupilMask x,y = " << _xDECam << " " << _yDECam << std::endl;
   }
@@ -1000,13 +1089,13 @@ void DonutEngine::calcPupilMask(){
 
     // for DECam make pupil Mask with extra detail
     if (_iTelescope==0){
-    
+
       // model all surfaces which contribute
       // only 3 obstructions matter: EndCapTop, Shroud, ChimneyAOut
       Real apertureRadius[3] = {0.301,0.298,0.264};
       Real apertureSlope[3] = {3.72e-4,2.31e-4,-1.79e-4};
-      
-      // calculate the offsets 
+
+      // calculate the offsets
       // note that _xDECam,_yDECam is in [mm] not meters!!!
       Real offx[3];
       Real offy[3];
@@ -1028,13 +1117,13 @@ void DonutEngine::calcPupilMask(){
       Real filtExchArcBoxYmax = 0.369;
       Real filtExchArcBoxYmin = 0.320;
       Real spiderWidth = 0.019 * (1462.526/4010.)/2.0;  // use 19mm thick
-      Real spiderSlope = 3.01e-4;  
+      Real spiderSlope = 3.01e-4;
 
       // now loop over all bins, and build the pupil
       bool spiderMask(false);  //x1true mean pupil==1 (ie. clear)
       bool filtExchMask(false);
       bool annulusMask(false);
-	
+
       for (int i=0;i<_nbin*_nbin;i++){
 
 	// model the 3 circular apertures of the central obstruction
@@ -1042,7 +1131,7 @@ void DonutEngine::calcPupilMask(){
 	for (int iap=0;iap<3;iap++){
 	  double x = _xaxis(i) - offx[iap];
 	  double y = _yaxis(i) - offy[iap];
-	  rhop[iap] = sqrt(x*x+y*y)/apertureRadius[iap];	  	  
+	  rhop[iap] = sqrt(x*x+y*y)/apertureRadius[iap];
 	}
 
 	// pupil plane with central obscuration
@@ -1055,15 +1144,15 @@ void DonutEngine::calcPupilMask(){
 	// model the Filter Exchange Mechanism
 	double xx = fabs( _xaxis(i) -  _zemaxToDECamSignFlip * filtExchSlope * _xDECam);
 	double yy = fabs( _yaxis(i) -  _zemaxToDECamSignFlip * filtExchSlope * _yDECam);
-	
-	if ( (xx<filtExchBoxXmax && yy<filtExchBoxYmax)  || 
-	     (xx<filtExchArcBoxXmax && yy<filtExchArcBoxYmax && yy>=filtExchArcBoxYmin && yy < (filtExchArcP0+filtExchArcP1*xx+filtExchArcP2*xx*xx) ) ){	
+
+	if ( (xx<filtExchBoxXmax && yy<filtExchBoxYmax)  ||
+	     (xx<filtExchArcBoxXmax && yy<filtExchArcBoxYmax && yy>=filtExchArcBoxYmin && yy < (filtExchArcP0+filtExchArcP1*xx+filtExchArcP2*xx*xx) ) ){
 	  filtExchMask = false;
 	} else {
 	  filtExchMask = true;
 	}
-    	
-	// model the spider 
+
+	// model the spider
 	// rotate by 45deg and make simple cut around spiderWidth
 	double xxx = _xaxis(i) - _zemaxToDECamSignFlip * spiderSlope * _xDECam;
 	double yyy = _yaxis(i) - _zemaxToDECamSignFlip * spiderSlope * _yDECam;
@@ -1072,10 +1161,10 @@ void DonutEngine::calcPupilMask(){
 
 	// allow control over each of 4 spider arms
 
-	
+
 	// all 4 legs
-	if ( (fabs(dxprime)<spiderWidth*7. && dyprime>apertureRadius[0]) || 
-	     (fabs(dxprime)<spiderWidth*3.5 && dyprime<-apertureRadius[0]) || 
+	if ( (fabs(dxprime)<spiderWidth*7. && dyprime>apertureRadius[0]) ||
+	     (fabs(dxprime)<spiderWidth*3.5 && dyprime<-apertureRadius[0]) ||
 	     (dxprime>apertureRadius[0] && fabs(dyprime)<spiderWidth*3.5) ||
 	     (dxprime<-apertureRadius[0] && fabs(dyprime)<spiderWidth*3.5) ) {
 	  spiderMask = false;
@@ -1083,14 +1172,14 @@ void DonutEngine::calcPupilMask(){
 	  spiderMask = true;
 	}
 
-		
+
 	// combine annulus, spider and filter Exchanger
 	if (spiderMask && annulusMask && filtExchMask){
 	  _pupilMask(i) = 1.0;
 	} else {
 	  _pupilMask(i) = 0.0;
 	}
-      } 
+      }
 
     }
 
@@ -1100,7 +1189,7 @@ void DonutEngine::calcPupilMask(){
     Matrix dy(_nbin,_nbin);
     dx = _xaxis;
     dy = _yaxis;
-    
+
     Matrix rhoprime(_nbin,_nbin);
     Matrix dxprime(_nbin, _nbin);
     Matrix dyprime(_nbin, _nbin);
@@ -1109,26 +1198,26 @@ void DonutEngine::calcPupilMask(){
     Real spiderWidth = 0.0; //TBD
     Real invAsq = 0.57245381187;  //inverse square of the major axis of the aperture
     Real invBsq = 0.53424950221;  //inverse square of the minor axis of the aperture
-    
+
     // create a grid for the aperture ellipse
     for (int i=0; i<_nbin * _nbin; i++){
       _rhoellipse(i) = sqrt(_xaxis(i)*_xaxis(i)*invAsq + _yaxis(i) * _yaxis(i) * invBsq) / _outerRadius;
     }
-    
+
     Matrix spiderMask(_nbin,_nbin);
     Matrix annulusMask(_nbin,_nbin);
 
     Real a = 0.956343696  - 0.02034548701 * _xDECam + 0.05050383872 * _yDECam;
     Real b = 0.9664723832 - 0.0359776269  * _xDECam + 0.02464690834 * _yDECam;
 
-    Real invasq = 1. / pow(a*1.37, 2);  // inverse square of obscuration major axis 
-    Real invbsq = 1. / pow(b*1.37, 2);  // inverse square of obscuration minor axis 
+    Real invasq = 1. / pow(a*1.37, 2);  // inverse square of obscuration major axis
+    Real invbsq = 1. / pow(b*1.37, 2);  // inverse square of obscuration minor axis
     Real cy = -0.1233;   // center of obscuration ellipse on y axis
     Real cx = 0.13015;   // center of oscuration ellipse on x axis
-    
+
     //calculate angle of rotation of obscuration ellipse
     Real phi = -353.750340246 + 192.46801126 * _xDECam + 112.10949469 * _yDECam;
-    
+
     // calculate the slope and intercept of the vignetting feature, i.e. "bite"
     Real biteslope =  1.43295788    + 1.56       * _xDECam - 2.21165461 * _yDECam;
     Real biteint   = -8.81802987607 + 2.71588835 * _xDECam + 3.84451752 * _yDECam;
@@ -1144,18 +1233,18 @@ void DonutEngine::calcPupilMask(){
 	lhs = cos(phi) * (dx(i) - cx) + (dy(i) - cy) * sin(phi);
 	rhs = sin(phi) * (dx(i) - cx) - (dy(i) - cy) * cos(phi);
 	rhoprime(i) = sqrt(lhs * lhs * invasq + rhs * rhs * invbsq) / _innerRadius;
-	
+
 	// rotate by 45deg, cut around spiderWidth, rotate back
 	dxprime(i) = dx(i) * cos(_M_PI_4) - dy(i) * sin(_M_PI_4);
 	dyprime(i) = dx(i) * sin(_M_PI_4) + dy(i) * cos(_M_PI_4);
-	
+
 
 	if ( fabs(dxprime(i))<spiderWidth ||  fabs(dyprime(i))<spiderWidth ){
 	  spiderMask(i) = 0.0;
 	} else {
 	  spiderMask(i) = 1.0;
 	}
-	
+
 	// pupil plane with central obscuration
 	if ( _rhoellipse(i)<1.0 && rhoprime(i)>1. ){
 	  annulusMask(i) = 1.0;
@@ -1167,63 +1256,63 @@ void DonutEngine::calcPupilMask(){
 	if (dy(i) < bitey){
 	  annulusMask(i) = 0.0;
 	}
-	
+
 	// combine spider and annulus
 	if (spiderMask(i)==1.0 && annulusMask(i)==1.0){
 	  _pupilMask(i) = 1.0;
 	} else {
 	  _pupilMask(i) = 0.0;
 	}
-    } 
-    
-    
+    }
+
+
   }
   else {
       // input parameters will define pupilMask
       // parameters: spiderWidth, innerRadius
-      
+
       // build the pupil Mask
       Matrix dx(_nbin,_nbin);
       Matrix dy(_nbin,_nbin);
       dx = _xaxis;
       dy = _yaxis;
-      
+
       Matrix rhoprime(_nbin,_nbin);
       Matrix dxprime(_nbin,_nbin);
       Matrix dyprime(_nbin,_nbin);
-      //Real spiderWidth = 0.0028/2.0; 
+      //Real spiderWidth = 0.0028/2.0;
       Real spiderWidth = 0.0;   //Kludge on Sept 22, 2014
-      
+
       Matrix spiderMask(_nbin,_nbin);
       Matrix annulusMask(_nbin,_nbin);
-      
+
       for (int i=0;i<_nbin*_nbin;i++){
 	rhoprime(i) = sqrt(dx(i)*dx(i) + dy(i)*dy(i))/_innerRadius;
-	
+
 	// rotate by 45deg, cut around spiderWidth, rotate back
 	dxprime(i) = dx(i) * cos(_M_PI_4) - dy(i) * sin(_M_PI_4);
 	dyprime(i) = dx(i) * sin(_M_PI_4) + dy(i) * cos(_M_PI_4);
-	
+
 	if ( fabs(dxprime(i))<spiderWidth ||  fabs(dyprime(i))<spiderWidth ){
 	  spiderMask(i) = 0.0;
 	} else {
 	  spiderMask(i) = 1.0;
 	}
-	
+
 	// pupil plane with central obscuration
 	if ( _rho(i)<1.0 && rhoprime(i)>1. ){
 	  annulusMask(i) = 1.0;
 	} else {
 	  annulusMask(i) = 0.0;
 	}
-	
+
 	// combine spider and annulus
 	if (spiderMask(i)==1.0 && annulusMask(i)==1.0){
 	  _pupilMask(i) = 1.0;
 	} else {
 	  _pupilMask(i) = 0.0;
 	}
-      } 
+      }
 
     } // test for iTelescope==0
 
@@ -1237,9 +1326,9 @@ void DonutEngine::calcPupilMask(){
   _pupilSNorm = 0.0;
   for (int i=0;i<_nbin*_nbin;i++){
     _pupilSNorm += _pupilMask(i);
-  }    
+  }
   _pupilSNorm = sqrt(_pupilSNorm);
-  
+
   clock_t stop = clock();
   _timePupilMask += (stop-start)/(Real)CLOCKS_PER_SEC;
 
@@ -1252,26 +1341,30 @@ void DonutEngine::calcPupilFunc(){
   if (_printLevel>=2){
     std::cout << "DonutEngine: calcPupilFunc " << std::endl;
   }
-  
+
   // Zernike terms
   for (int iZ=0;iZ<nZernikeSize;iZ++){
     if (_ZernikeArr[iZ] != _last_ZernikeArr[iZ]){
 
       Matrix zernikeTemp =  _zernikeObject->_zernikeTerm[iZ+1]; // need [iZ+1] since ZernikeTerm includes the Piston term
       for (int i=0;i<_nbin*_nbin;i++){
-	_pupilWaveZernike(i) = _pupilWaveZernike(i) +  ( _ZernikeArr[iZ] - _last_ZernikeArr[iZ] ) * zernikeTemp(i);
+        _pupilWaveZernike(i) = _pupilWaveZernike(i) +  ( _ZernikeArr[iZ] - _last_ZernikeArr[iZ] ) * zernikeTemp(i);
       }
-      
+
     }
   }
 
-  //add deltaWFM if desired
+  //add deltaWFM if desired TODO: put into one array here, and then remove if, else below... (check this in derivative calc too...)
   if (_usingDeltaWFM){
      for (int i=0;i<_nbin*_nbin;i++){
        _pupilWaveZernikePlusDelta(i) = _pupilWaveZernike(i) + _deltaWFM(i);
      }
+  } else {
+    for (int i=0;i<_nbin*_nbin;i++){
+      _pupilWaveZernikePlusDelta(i) = _pupilWaveZernike(i);
+    }
   }
-    
+
   // calculate the pupilFunc(tion) from the pupilWave(front)
   //Complex I = Complex(0.0,1.0);
   Complex twopiI = Complex(0.0,2.0*_M_PI);
@@ -1280,19 +1373,15 @@ void DonutEngine::calcPupilFunc(){
       _pupilFunc(i) = 0.0;
       _pupilFuncStar(i) = 0.0;
     } else {
-      if (_usingDeltaWFM){
-	_pupilFunc(i) = _pupilMask(i) * exp(twopiI  *_pupilWaveZernikePlusDelta(i));   // no lambda here, so units are in waveLength
-      } else{
-	_pupilFunc(i) = _pupilMask(i) * exp(twopiI  *_pupilWaveZernike(i));   // no lambda here, so units are in waveLength
-      }
+      _pupilFunc(i) = _pupilMask(i) * exp(twopiI  *_pupilWaveZernikePlusDelta(i));   // no lambda here, so units are in waveLength
       _pupilFuncStar(i) = conj(_pupilFunc(i));
     }
   }
 
-  if (_debugFlag && nCallsCalcAll<=1){    
+  if (_debugFlag && nCallsCalcAll<=1){
     Matrix pupil(_nbin,_nbin);
     for (int i=0;i<_nbin*_nbin;i++){
-      pupil(i) = _pupilWaveZernike(i) * _pupilMask(i);
+      pupil(i) = _pupilWaveZernikePlusDelta(i) * _pupilMask(i);
     }
     toFits(_fptr,pupil);
     toFits(_fptr,_pupilFunc);
@@ -1302,21 +1391,21 @@ void DonutEngine::calcPupilFunc(){
   _timePupilFunc += (stop-start)/(Real)CLOCKS_PER_SEC;
 
 }
- 
-        
+
+
 void DonutEngine::calcOptics(){
-           
+
   clock_t start = clock();
 
   if (_printLevel>=2){
     std::cout << "DonutEngine: calcOptics " << std::endl;
   }
-                
+
   // calculate the PSF from the Pupil function (use ifft to match Zemax output! )
   MatrixC ishftpupilFunc(_nbin,_nbin);
   ishftpupilFunc = _pupilFunc;
   fftShift(ishftpupilFunc); //was InvShift, but these are the same as long as _nbin is even
-  _ifftInputArray = ishftpupilFunc;  
+  _ifftInputArray = ishftpupilFunc;
   _ifft2PlanC->execute();
 
   // don't shift G and G*, only psfOptics   (normalize to sqrt(Area*NbinsTotal))
@@ -1339,11 +1428,11 @@ void DonutEngine::calcOptics(){
   // Q: is an fft of an unshifted fft shifted?
   realToComplex(unshftpsfOptics,_fftInputArray);
   _fft2PlanC->execute();
-  _ftsOptics = _fftOutputArray;  
+  _ftsOptics = _fftOutputArray;
 
   //_fftrtcInputArray = unshftpsfOptics;
   //_fft2rtcPlanC->execute();
-  //_ftsOptics = _fftrtcOutputArray;  
+  //_ftsOptics = _fftrtcOutputArray;
 
   // for (int k=0;k<512*512;k++){
   //   if (abs(_ftsOptics(k)-_fftrtcOutputArray(k))>1e-10){
@@ -1369,7 +1458,7 @@ void DonutEngine::shiftnormG(){
     _magG(i) = _magG(i)/summagG;
   }
 }
-    
+
 
 void DonutEngine::calcAtmos(){
 
@@ -1378,12 +1467,12 @@ void DonutEngine::calcAtmos(){
   if (_printLevel>=2){
     std::cout << "DonutEngine: calcAtmos" << std::endl;
   }
-  
+
   // calculate Kolmogorov dist, use shifted radius Array, instead of shifting this everytime!
   Matrix shftarrAtmos(_nbin,_nbin);
   Real fivethirds(5./3.);
   Real shftarrAtmosMax(0.);
-  for (int i=0;i<_nbin*_nbin;i++){  
+  for (int i=0;i<_nbin*_nbin;i++){
     shftarrAtmos(i) = exp(-3.44*pow(_shftrAtmos(i)*_waveLength*_fLength/_rzero,fivethirds));
     if (shftarrAtmos(i)>shftarrAtmosMax){
       shftarrAtmosMax = shftarrAtmos(i);
@@ -1393,7 +1482,7 @@ void DonutEngine::calcAtmos(){
   shftarrAtmos /= shftarrAtmosMax;
 
   // take the inverse FT to get the Atmosphere's PSF
-  realToComplex(shftarrAtmos,_ifftInputArray);  
+  realToComplex(shftarrAtmos,_ifftInputArray);
   _ifft2PlanC->execute();
 
   //_fftrtcInputArray = shftarrAtmos;
@@ -1401,9 +1490,9 @@ void DonutEngine::calcAtmos(){
 
   Matrix unshftpsfAtmos(_nbin,_nbin);
   // normalization of unshftpsfAtmos is very close to the maximum value divided by _nbin*_nbin
-  // but is a few percent off from that - so just normalize so the sum==1.0 
+  // but is a few percent off from that - so just normalize so the sum==1.0
   Real atmosNormalization(0.);
-  for (int i=0;i<_nbin*_nbin;i++){  
+  for (int i=0;i<_nbin*_nbin;i++){
     unshftpsfAtmos(i) = abs(_ifftOutputArray(i))/(_nbin*_nbin);
     //unshftpsfAtmos(i) = abs(_fftrtcOutputArray(i))/(_nbin*_nbin);
     atmosNormalization += unshftpsfAtmos(i);
@@ -1417,15 +1506,15 @@ void DonutEngine::calcAtmos(){
     toFits(_fptr,_psfAtmos);
   }
 
-                                
+
   // to convolve with the other sources of PSF, take the FT of the Atmosphere's PSF
-  realToComplex(unshftpsfAtmos,_fftInputArray); 
+  realToComplex(unshftpsfAtmos,_fftInputArray);
   _fft2PlanC->execute();
-  _ftsAtmos = _fftOutputArray; 
+  _ftsAtmos = _fftOutputArray;
 
   //_fftrtcInputArray = unshftpsfAtmos;
   //_fft2rtcPlanC->execute();
-  //_ftsAtmos = _fftrtcOutputArray; 
+  //_ftsAtmos = _fftrtcOutputArray;
 
   clock_t stop = clock();
   _timeAtmos += (stop-start)/(Real)CLOCKS_PER_SEC;
@@ -1456,11 +1545,11 @@ void DonutEngine::calcFTPixel(){
     _pixelBox *= (1.0/sumOfBox);           // normalize to 1.0
     fftShift(_pixelBox,_fftInputArray);  // was InvShift, also don't need pixelBox anymore - this shifts in place
     _fft2PlanC->execute();
-    _ftsPixel = _fftOutputArray; 
+    _ftsPixel = _fftOutputArray;
   } else {
     _ftsPixel = 1.0;  // sets whole array to 1.0
   }
-            
+
 
   if (_debugFlag  && nCallsCalcAll<=1){
     toFits(_fptr,_ftsPixel);
@@ -1475,7 +1564,7 @@ void DonutEngine::calcConvolute(){
   if (_printLevel>=2){
     std::cout << "DonutEngine: calcConv" << std::endl;
   }
-        
+
   // convolution (now doing it as F-1{F(Optics) F(Atmos) F(Pixels)
   MatrixC prodFts(_nbin,_nbin);
   for (int i=0;i<_nbin*_nbin;i++){
@@ -1502,8 +1591,8 @@ void DonutEngine::calcConvolute(){
   _timeConvolute += (stop-start)/(Real)CLOCKS_PER_SEC;
 
 }
-        
-            
+
+
 void DonutEngine::calcPixelate(){
 
   clock_t start = clock();
@@ -1511,7 +1600,7 @@ void DonutEngine::calcPixelate(){
   if (_printLevel>=2){
     std::cout << "DonutEngine: calcPixelate" << std::endl;
   }
-  
+
   // integer value of ngridperPixel?
   bool useNgridperPixel = (int(_ngridperPixel) == _ngridperPixel);
 
@@ -1548,7 +1637,7 @@ void DonutEngine::calcPixelate(){
     //_xPixelCenters,_yPixelCenters,_valPixelCenters = _getPixelated(0.0,0.0,_pixelSize,_nPixels,_xpsf,_ypsf,_convOpticsAtmosPixel);
     // normalize
     //_valPixelCenters = _valPixelCenters/_valPixelCenters.sum();
-    
+
   }
 
   if (_debugFlag  && nCallsCalcAll<=1){
@@ -1559,35 +1648,35 @@ void DonutEngine::calcPixelate(){
   _timePixelate += (stop-start)/(Real)CLOCKS_PER_SEC;
 
 }
- 
+
 
     // void getPixelated(self,xPixOffset,yPixOffset,pixelSize,nPixels,xpsf,ypsf,convPSF):
 
     //     // xPixOffset and yPixOffset go from -1 to 1 inside a pixel
     //     xLocOffset = xPixOffset*pixelSize/2.0
     //     yLocOffset = yPixOffset*pixelSize/2.0   // from pixel to local coordinates
-        
+
     //     // setup interpolation, and get values at pixel centers given that the central pixel is at a certain position
     //     // get nPixels x nPixels sized array
-        
+
     //     xLo = -(nPixels/2)*pixelSize + xLocOffset
     //     xHi = (nPixels/2)*pixelSize + xLocOffset
     //     yLo = -(nPixels/2)*pixelSize + yLocOffset
     //     yHi = (nPixels/2)*pixelSize + yLocOffset
     //     yPixelCenters,xPixelCenters = itricks.mgrid[yLo:yHi:(nPixels)*1j,xLo:xHi:(nPixels)*1j]
-        
+
     //     myInterp = interpolate.RectBivariateSpline(ypsf[:,0],xpsf[0,:],convPSF,kx=3,ky=3)
     //     valPixelCenters = myInterp(yPixelCenters[:,0],xPixelCenters[0,:])
-        
+
     //     return xPixelCenters,yPixelCenters,valPixelCenters
 
 
-void DonutEngine::calcDerivatives(double* image, int ny, int nx, 
+void DonutEngine::calcDerivatives(double* image, int ny, int nx,
 				  double* weight, int my, int mx){
   calcDerivatives(image,weight);
 }
 
-void DonutEngine::calcGridDerivatives(double* image, int ny, int nx, 
+void DonutEngine::calcGridDerivatives(double* image, int ny, int nx,
 				  double* weight, int my, int mx){
   calcGridDerivatives(image,weight);
 }
@@ -1626,7 +1715,7 @@ MatrixC DonutEngine::calcQQQtilde(Matrix& Qpixels){
 
   // FT^-1{Q}
   fftShift(Q); //was InvShift
-  realToComplex(Q,_ifftInputArray);  
+  realToComplex(Q,_ifftInputArray);
   _ifft2PlanC->execute();
   Qtilde = _ifftOutputArray;
 
@@ -1647,9 +1736,9 @@ MatrixC DonutEngine::calcQQQtilde(Matrix& Qpixels){
 
   // QQQstartilde and QQQtilde are complex conj, can use that, instead of separate calcs
   // since QQtilde is all real
-  // F{ G * QQtilde } 
+  // F{ G * QQtilde }
 
-  for (int i=0;i<_nbin*_nbin;i++){ 
+  for (int i=0;i<_nbin*_nbin;i++){
     QQQ(i) = _calcG(i) * QQtilde(i);
   }
   _fftInputArray = QQQ;
@@ -1661,23 +1750,23 @@ MatrixC DonutEngine::calcQQQtilde(Matrix& Qpixels){
   QQQtilde *= QQandQQQnorm;
 
   return QQQtilde;
-  
+
 }
- 
+
 void DonutEngine::calcDerivatives(Real* image, Real* weight){
 
   nCallsCalcDerivative++;
-  
+
   clock_t start = clock();
 
   // arrays we will need
   Matrix Qpixels(_nPixels,_nPixels);
-  
+
   // calculate Q = W(I-N)
   for (int i=0;i<_nPixels*_nPixels;i++){
     Qpixels(i) = weight[i] * (_calcImage(i) - image[i]);
   }
-  
+
   // calculate matrix for chi2 derivative calculation
   MatrixC QQQtilde = calcQQQtilde(Qpixels);
 
@@ -1688,7 +1777,7 @@ void DonutEngine::calcDerivatives(Real* image, Real* weight){
 
   // dg*(x)/dalpha * QQQtilde
   Vector dChi2dzern(nZernikeSize);
-  
+
   // Loop over Zernike terms - only need nZernikeSize=nZernikeTerm-1 of them!!!
   Complex minustwopiI(0.0,-2.0*_M_PI);
   Real minustwopi(-2.0*_M_PI);
@@ -1712,7 +1801,7 @@ void DonutEngine::calcDerivatives(Real* image, Real* weight){
       //      dChi2dzern[iZ] += real(dgdalphaStar(i)*QQQtilde(i));
       dChi2dzern[iZ] -= imag(dgdalphaStar(i)*QQQtilde(i));  //note its -= not += !!
     }
-    dChi2dzern[iZ] *= (4.0 * _nEle * minustwopi * 86.8692) ; 
+    dChi2dzern[iZ] *= (4.0 * _nEle * minustwopi * 86.8692) ;
     // why oh why am I off by this weird number??!!
     //    dChi2dzern[iZ] *= 86.8692;
 
@@ -1725,7 +1814,7 @@ void DonutEngine::calcDerivatives(Real* image, Real* weight){
   Real dChi2dnele(0.);
   Real dChi2dbkgd(0.);
   for (int i=0;i<_nPixels*_nPixels;i++){
-    dChi2dnele += 2.0 * Qpixels(i) * (_calcImage(i) - _bkgd) / _nEle; 
+    dChi2dnele += 2.0 * Qpixels(i) * (_calcImage(i) - _bkgd) / _nEle;
     dChi2dbkgd += 2.0 * Qpixels(i);
   }
 
@@ -1787,7 +1876,7 @@ void DonutEngine::calcDerivatives(Real* image, Real* weight){
     _dChi2dpar[ipar_ZernikeFirst+iZ] = dChi2dzern[iZ];
   }
 
-  
+
   // print out Derivatives
   if (_printLevel>=2){
     std::cout << "DonutEngine: Derivatives are = " ;
@@ -1809,17 +1898,17 @@ void DonutEngine::calcGridDerivatives(Real* image, Real* weight){
   // calculate Grid Derivatives
 
    nCallsCalcDerivative++;
-  
+
   clock_t start = clock();
 
   // arrays we will need
   Matrix Qpixels(_nPixels,_nPixels);
-  
+
   // calculate Q = W(I-N)
   for (int i=0;i<_nPixels*_nPixels;i++){
     Qpixels(i) = weight[i] * (_calcImage(i) - image[i]);
   }
-  
+
   // calculate matrix for chi2 derivative calculation
   MatrixC QQQtilde = calcQQQtilde(Qpixels);
 
@@ -1830,7 +1919,7 @@ void DonutEngine::calcGridDerivatives(Real* image, Real* weight){
 
   // dg*(x)/dgrid * QQQtilde
   // Vector dChi2dgrid(_nGrid);  // make this a data member...
-  
+
   // Loop over all grid parameters
   Complex minustwopiI(0.0,-2.0*_M_PI);
   Real minustwopi(-2.0*_M_PI);
@@ -1846,7 +1935,7 @@ void DonutEngine::calcGridDerivatives(Real* image, Real* weight){
     for (int i=0;i<_nbin*_nbin;i++){
       _dChi2dgrid[iGrid] -= imag(_pupilFuncStar(i) * dgdalpha(i) * QQQtilde(i));  //note its -= not += !!
     }
-    _dChi2dgrid[iGrid] *= (4.0 * _nEle * minustwopi * 86.8692) ; 
+    _dChi2dgrid[iGrid] *= (4.0 * _nEle * minustwopi * 86.8692) ;
     // why oh why am I off by this weird number??!!
     //    dChi2dzern[iZ] *= 86.8692;
 
@@ -1855,10 +1944,10 @@ void DonutEngine::calcGridDerivatives(Real* image, Real* weight){
 
   }
 
- 
+
   // fill return array - decide how to do this...
 
-  
+
   // print out Derivatives
   if (_printLevel>=2){
     std::cout << "DonutEngine: Derivatives are = " ;
@@ -1872,33 +1961,40 @@ void DonutEngine::calcGridDerivatives(Real* image, Real* weight){
   stop = clock();
   _timeDerivatives2 += (stop-start)/(Real)CLOCKS_PER_SEC;
 
-  
+
 }
 
 void DonutEngine::getBinsFromGrid(int iGrid, Matrix& gridDeriv){
 
-  // get Matrix with 1's for FFT grid points which depend on the iGrid'th wavefront Grid point
+  // calculate the dg/dalpha 2-d array in Fine grid space (nbin,nbin) for the iGrid'th element
 
-  //gridDeriv = 0.0;
-  for (int j=_yaxisGrid(iGrid);j<_yaxisGrid(iGrid)+_spacing;j++){
+  // points surrounding this iGrid'th element, where it makes up one of the 4 corners of the bilinear interpolation // will have non-zero vlaues.
+  //
+  // the derivative of the bi-linear interp formula indicates that it has values close to 1 around the location of the Coarse grid point, falling linearly in each view to 0 at the edges.
+
+  int ii = _iiGrid(iGrid);
+  int jj = _jjGrid(iGrid);
+
+  gridDeriv = 0.0;
+  for (int j=0;j<_nbin;j++){
     int ind = j*_nbin;
-    for (int i=_xaxisGrid(iGrid);i<_xaxisGrid(iGrid)+_spacing;i++){
+    for (int i=0;i<_nbin;i++){
       int index = ind + i;
       if (_pupilMask(index)!=0.0){
-	gridDeriv(index) = 1.;
+	gridDeriv(index) = 0.;  // CHANGE here
       }
     }
   }
-  
+
 }
- 
+
     // void calcImageDerivatives(self,paramArray,paramErrArray,fixParamArray,image,weight):
     //     // calc dI(u)/dalpha for all parameters (even r0) and return maxtrix
 
     //     // calculate starting image
     //     _calcAll(paramArray)
     //     calcImageSaved = _calcImage
-        
+
     //     // transfer matrix A[iPixel,iPar]
     //     transArray = matrix(numpy.zeros((_nPixels*_nPixels,npar)))
 
@@ -1917,7 +2013,7 @@ void DonutEngine::getBinsFromGrid(int iGrid, Matrix& gridDeriv){
     //             parDeriv[ipar] = parDeriv[ipar] + delta
     //             _calcAll(parDeriv)
     //             thisMatrix = matrix(_calcImage)
-    //             thisMatrix.resize(_nPixels*_nPixels)                
+    //             thisMatrix.resize(_nPixels*_nPixels)
     //             deltaImage = (thisMatrix - calcMatrix)/delta
     //             transArray[:,ipar] = deltaImage.transpose()
 
@@ -1927,12 +2023,12 @@ void DonutEngine::getBinsFromGrid(int iGrid, Matrix& gridDeriv){
 
     //     // return the matrix
     //     return transArray,calcImageSaved
-    
+
 
 void DonutEngine::realToComplex(Matrix& in, MatrixC& out){
 
   int n = in.Nx() * in.Ny();
-  // assume both arrays have same size 
+  // assume both arrays have same size
 
   for (int i=0;i<n;i++){
     out(i) = (Complex) in(i);
@@ -2033,6 +2129,12 @@ void DonutEngine::getvDeltaWFM(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2)
   *ARGOUTVIEW_ARRAY2 = _deltaWFM();
 }
 
+void DonutEngine::getvCoarseWFM(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2){
+  *DIM1 = _coarseGrid.Ny();
+  *DIM2 = _coarseGrid.Nx();
+  *ARGOUTVIEW_ARRAY2 = _coarseGrid();
+}
+
 void DonutEngine::getvPupilMask(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2){
   *DIM1 = _pupilMask.Ny();
   *DIM2 = _pupilMask.Nx();
@@ -2114,6 +2216,17 @@ void DonutEngine::getGridDerivatives(double** ARGOUTVIEW_ARRAY1, int* DIM1){
   *ARGOUTVIEW_ARRAY1 = _dChi2dgrid;
 }
 
+void DonutEngine::getviiGrid(int** ARGOUTVIEW_ARRAY1, int* DIM1){
+  *DIM1 = _iiGrid.Nx();
+  *ARGOUTVIEW_ARRAY1 = _iiGrid;
+}
+
+void DonutEngine::getvjjGrid(int** ARGOUTVIEW_ARRAY1, int* DIM1){
+  *DIM1 = _jjGrid.Nx();
+  *ARGOUTVIEW_ARRAY1 = _jjGrid;
+}
+
+
 
 void DonutEngine::toFits(fitsfile* fptr, MatrixC& in){
 
@@ -2162,7 +2275,3 @@ void DonutEngine::toFits(fitsfile* fptr, Matrix& in){
   }
 
 }
-
-
-
-

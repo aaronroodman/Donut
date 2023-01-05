@@ -117,6 +117,7 @@ public:
   void getvPupilWaveZernike(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvPupilWaveZernikePlusDelta(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvDeltaWFM(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
+  void getvCoarseWFM(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvPupilFunc(Complex** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvMagG(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvPhaseG(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
@@ -127,6 +128,8 @@ public:
   void getvConvOpticsAtmosPixel(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvValPixelCenters(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
   void getvImage(double** ARGOUTVIEW_ARRAY2, int* DIM1, int* DIM2);
+  void getviiGrid(int** ARGOUTVIEW_ARRAY1, int* DIM1);  
+  void getvjjGrid(int** ARGOUTVIEW_ARRAY1, int* DIM1);  
 
   // don't strictly need these now
   // VString getVNames(){return parNames;}
@@ -182,7 +185,7 @@ protected:
   void defineParams();
 
   // other internal methods
-  void makeFineGrid();
+  void getCoarseGridPt(int i, float& x1, int& ii1);
   void getBinsFromGrid(int iGrid, Matrix& gridDeriv);
   MatrixC calcQQQtilde(Matrix& Qpixels);
   
@@ -288,7 +291,7 @@ protected:
   Matrix _rho,_theta;
 
   // Wavefront Grid index arrays - integer index into xaxis,yaxis
-  MatrixI _xaxisGrid,_yaxisGrid;
+  VectorI _iiGrid,_jjGrid;
   // Wavefront Grid arrays
   Matrix _coarseGrid,_fineGrid;
   

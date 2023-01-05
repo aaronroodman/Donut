@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-# $Rev:: 212                                                          $:  
-# $Author:: roodman                                                   $:  
-# $LastChangedDate:: 2015-08-17 12:07:18 -0700 (Mon, 17 Aug 2015)     $: 
+# $Rev:: 212                                                          $:
+# $Author:: roodman                                                   $:
+# $LastChangedDate:: 2015-08-17 12:07:18 -0700 (Mon, 17 Aug 2015)     $:
 #
 # Make one calculated image, either from Zemax Zernike array
-# or from Zemax WFM file.  
+# or from Zemax WFM file.
 #
 import numpy
 import scipy
@@ -48,7 +48,7 @@ class makedonut(object):
                           "nPixels":64,
                           "gridCalcMode":True,
                           "pixelOverSample":8,
-                          "scaleFactor":1.,                 
+                          "scaleFactor":1.,
                           "rzero":0.125,
                           "nEle":1.0e6,
                           "background":4000.,
@@ -56,7 +56,8 @@ class makedonut(object):
                           "randomSeed":209823,  # if this is an invalid integer, crazy errors will ensue
                           "gain":1.0,
                           "flipFlag":False,
-                          "ZernikeArray":[]}
+                          "ZernikeArray":[],
+                          "deltaWFM":""}
 
         self.paramDict.update(inputDict)
 
@@ -67,22 +68,17 @@ class makedonut(object):
 
         # also require that _Lu > 2R, ie. that pupil fits in pupil plane
         # this translates into requiring that (Lambda F / pixelSize) * pixelOverSample * scaleFactor > 1
-        # Why does this depend on scaleFactor, but not Z4?? Answer: scaleFactor effectively changes the wavelength, so 
+        # Why does this depend on scaleFactor, but not Z4?? Answer: scaleFactor effectively changes the wavelength, so
         # it must be included.  It is also possible that Z4 is too big for the nPixels - buts that another limit than this one
         F = 2.9  # hardcode for DECam for now
-        pixelSize = 15.e-6 
+        pixelSize = 15.e-6
         if self.paramDict["pixelOverSample"] * self.paramDict["scaleFactor"] * (self.paramDict["waveLength"] * F / pixelSize) < 1. :
             print("makedonut:  ERROR pupil doesn't fit!!!")
             print("            value = ",self.paramDict["pixelOverSample"] * self.paramDict["scaleFactor"] * (self.paramDict["waveLength"] * F / pixelSize))
             #sys.exit(2)
 
-        # for WFM, need to turn gridCalcMode to False for donutengine
-        #if self.paramDict["useWFM"]:
-        #    self.paramDict["gridCalcMode"] = False
-            #
-            # don't do this by default, may need it if Zemax is used, but not if correct bins sizes are used.
-            # and it isn't coded with c++ donutengine yet either...
-            
+
+
         # declare fit function
         self.gFitFunc = donutengine(**self.paramDict)
 
@@ -101,9 +97,9 @@ class makedonut(object):
         # Note: x=0,y=0 is in between sensors.  IF this is used, then just set these by hand
         if X==0.0 and Y==0.0:
             self.extname = "N4"
-            self.ix = -1024
+            self.ix = 0  #was -1024, but shouldn't be below 0... Use 0 to get a value close to F.P. center
             self.iy = 2048
-        else:        
+        else:
             self.extname = self.dinfo.getSensor(X,Y)   # need to fix for DESI usage
             x,y = self.dinfo.getPixel(self.extname,X,Y)
             self.ix = int(x+0.5)
@@ -124,6 +120,12 @@ class makedonut(object):
         par[self.gFitFunc.ipar_rzero] = self.paramDict["rzero"]
         par[self.gFitFunc.ipar_nEle] = self.paramDict["nEle"]
         par[self.gFitFunc.ipar_bkgd] = self.paramDict["background"]
+
+        # if we have a deltaWFM, read it and install it
+        if self.paramDict['deltaWFM']:
+            wfm_hdu = pyfits.open(self.paramDict['deltaWFM'])
+            wfm = numpy.array(wfm_hdu[0].data,dtype=numpy.float64)  #need to convert when reading from fits!
+            self.gFitFunc.setDeltaWFM(wfm)
 
         # get command line input for Zernikes (if any)
         inputZernikeArray  = numpy.array(self.paramDict["ZernikeArray"])
@@ -151,10 +153,10 @@ class makedonut(object):
                 for iZ in range(self.gFitFunc.nZernikeSize):
                     par[self.gFitFunc.ipar_ZernikeFirst+iZ] = ZernCoeff[iZ+1]
 
-            # cmd line inputs overwrite what was in the file  -- start from Zernike2 in the input 
+            # cmd line inputs overwrite what was in the file  -- start from Zernike2 in the input
             if someInputZernike:
-                for iZ in range(len(inputZernikeArray)-1):            
-                    par[self.gFitFunc.ipar_ZernikeFirst+iZ] += inputZernikeArray[iZ+1] 
+                for iZ in range(len(inputZernikeArray)-1):
+                    par[self.gFitFunc.ipar_ZernikeFirst+iZ] += inputZernikeArray[iZ+1]
 
             # now make the Donut
             self.gFitFunc.calcAll(par)
@@ -182,7 +184,7 @@ class makedonut(object):
 
         #print "makedonut: got the vImage"
 
-        # make the donut in units of electrons 
+        # make the donut in units of electrons
         if self.paramDict["randomFlag"]:
             postageshape = theImage.shape
             nranval = numpy.random.normal(0.0,1.0,postageshape)
@@ -218,7 +220,7 @@ class makedonut(object):
             prihdr.set("SCALE",0.27,"Arsec/pixel")
             prihdr.set("XDECAM",self.paramDict["xDECam"],"Target xposition (mm) in focal plane")
             prihdr.set("YDECAM",self.paramDict["yDECam"],"Target yposition (mm) in focal plane")
-            prihdr.set("EXTNAME",self.extname)  
+            prihdr.set("EXTNAME",self.extname)
             prihdr.set("IX",self.ix)
             prihdr.set("IY",self.iy)
             prihdr.set("FILTER",3,"Filter number 1-6=ugrizY")
@@ -259,6 +261,10 @@ if __name__ == "__main__":
                   dest="wfmFile",
                   default="",
                   help="wfm input file name, .txt for Zemax, .fits or .fits.fz for Fits")
+    parser.add_argument("-dwfm", "--deltaWFM",
+                  dest="deltaWFM",
+                  default="",
+                  help="pupil grid input file name, expects .fits file")
     parser.add_argument("-f", "--writeToFits",
                   dest="writeToFits",
                   action="store_true",
@@ -275,7 +281,7 @@ if __name__ == "__main__":
     parser.add_argument("-y", "--yDECam",
                   dest="yDECam",
                   default=0.,type=float,
-                  help="focal plane y coordinate")    
+                  help="focal plane y coordinate")
     parser.add_argument("-d", "--debugFlag",
                   dest="debugFlag",
                   action="store_true",
@@ -307,7 +313,7 @@ if __name__ == "__main__":
                 dest="nZernikeTerms",
                 default=37,type=int,
                 help="number of Zernike terms")
-    
+
     parser.add_argument("-nbin", "--nbin",
                   dest="nbin",
                   default=512,type=int,
@@ -354,7 +360,6 @@ if __name__ == "__main__":
                     dest="gain",
                     default=1.00,type=float,
                     help="gain in Nphoto-electron/ADU")
-
     parser.add_argument("-za",
                     dest="ZernikeArray",
                     default=None,

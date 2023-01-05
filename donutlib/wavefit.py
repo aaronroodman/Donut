@@ -1,16 +1,11 @@
 import time
-import os
 import numpy as np
-import sys
 import cv2
 from collections import OrderedDict
 from astropy.io import fits as pyfits
-from array import array
-import pdb
-import ctypes
+import tabulate as tab
 
-import ROOT
-ROOT.PyConfig.IgnoreCommandLineOptions = True
+from iminuit import Minuit
 from donutlib.donutengine import donutengine
 
 class wavefit(object):
@@ -22,8 +17,8 @@ class wavefit(object):
     def __init__(self,dfObject,**inputDict):
         # init contains all initializations which are done only once for all fits
         # parameters in fixParamArray1 are nEle,rzero,bkgd,Z2,Z3,Z4,....Z11
-        
-        self.paramDict = {"outputPrefix":"test","printLevel":2,"maxIterations":100,"spacing":16,"chi2factor1":1.e5,"maxwavevalue":0.5,"tolerance":0.1,"defineGrid":True}
+
+        self.paramDict = {"outputPrefix":"test","printLevel":2,"maxIterations":None,"spacing":16,"maxwavevalue":0.5,"tolerance":0.1}
 
         # search for key in inputDict, change defaults
         self.paramDict.update(inputDict)
@@ -36,7 +31,7 @@ class wavefit(object):
         self.parCurrent = self.gFitFunc.getParCurrent()
         bkg = self.parCurrent[self.gFitFunc.ipar_bkgd]
         self.pupilMask = self.gFitFunc.getvPupilMask()
-        
+
         self._nbin = self.gFitFunc._nbin
         self._nPixels = self.gFitFunc._nPixels
 
@@ -52,50 +47,35 @@ class wavefit(object):
 
         # Free parameters
         self.npar = len(self.finegrid)
-                 
-        # get weights and background subtracted image 
-        constantError2 = 7.1 * 7.1 
+
+        # get weights and image
+        constantError2 = 7.1 * 7.1
         self.sigmasq = self.df.imgarray + constantError2
         self.weight = 1.0/self.sigmasq
+        self.imgarrayc = self.df.imgarray
 
-        self.imgarrayc = self.df.imgarray###  - bkg        # WHY subtract background here?!
+        # do initial setup of Minuit parameters
+        self.setupCoarseGrid(values=np.zeros(self.npar))
 
         # setup MINUIT
-        self.gMinuit = ROOT.TMinuit(self.npar)
-        self.gMinuit.SetFCN( self.chisq )
+        self.gMinuit = Minuit(self.chisq,self.startingParam,name=self.parNames)
+        self.gMinuit.strategy = 0
+        self.gMinuit.tol = self.paramDict["tolerance"]
+        self.gMinuit.errordef = Minuit.LEAST_SQUARES
 
-        # arglist is for the parameters in Minuit commands
-        arglist = array( 'd', 10*[0.] )
-        ierflg =ctypes.c_int(1982)#L ROOT.Long(1982) 
-
-        # set the definition of 1sigma 
-        arglist[0] = 1.0
-        self.gMinuit.mnexcm( "SET ERR", arglist, 1, ierflg )
-
-        # turn off Warnings
-        arglist[0] = 0
-        self.gMinuit.mnexcm("SET NOWARNINGS", arglist,0,ierflg)
+        # set parameter values,limits, errors
+        for ipar,aname in enumerate(self.parNames):
+            self.gMinuit.values[aname] = self.startingParam[ipar]
+            if self.loParam[ipar]!=0 or self.hiParam[ipar]!=0 :
+                self.gMinuit.limits[aname] = (self.loParam[ipar],self.hiParam[ipar])
+            self.gMinuit.errors[aname] = self.errorParam[ipar]
+            if self.paramStatusArray[ipar]==0:
+                self.gMinuit.fixed[aname] = False
+            else:
+                self.gMinuit.fixed[aname] = True
 
         # set printlevel
-        arglist[0] = self.paramDict["printLevel"]
-        self.gMinuit.mnexcm("SET PRINTOUT", arglist,1,ierflg)
-        
-        # do initial setup of Minuit parameters
-
-        if self.paramDict["defineGrid"]:
-            # status/limit arrays for Minuit parameters
-            self.startingParam = np.zeros(self.npar)
-            self.errorParam = 0.01 * np.ones(self.npar)
-            self.loParam = -1.0 * np.ones(self.npar) * self.paramDict["maxwavevalue"]
-            self.hiParam = np.ones(self.npar) * self.paramDict["maxwavevalue"]
-            self.paramStatusArray = np.zeros(self.npar)   # store =0 Floating, =1 Fixed
-
-            # Set starting values and step sizes for parameters
-            # (note that one can redefine the parameters, so this method can be called multiple times)
-            self.parNames = []
-            for ipar in range(self.npar):
-                self.parNames.append("Grid_%d_%d" % (self.finegrid[ipar][0],self.finegrid[ipar][1]))
-                self.gMinuit.DefineParameter(ipar,"Grid_%d_%d" % (self.finegrid[ipar][0],self.finegrid[ipar][1]),self.startingParam[ipar],self.errorParam[ipar],self.loParam[ipar],self.hiParam[ipar])
+        self.gMinuit.print_level = self.paramDict["printLevel"]
 
         # other setup
         self.nCallsCalcAll = 0
@@ -114,18 +94,10 @@ class wavefit(object):
         self.parNames = []
         for ipar in range(self.npar):
             self.parNames.append("Grid_%d_%d" % (self.finegrid[ipar][0],self.finegrid[ipar][1]))
-            self.gMinuit.DefineParameter(ipar,"Grid_%d_%d" % (self.finegrid[ipar][0],self.finegrid[ipar][1]),self.startingParam[ipar],self.errorParam[ipar],self.loParam[ipar],self.hiParam[ipar])
 
 
+    def chisq(self,par):
 
-                
-    def chisq(self,npar, gin, f, par, iflag ):
-
-        # convert par to a np array
-        parArr = np.zeros(self.npar)
-        for ipar in range(self.npar):
-            parArr[ipar] = par[ipar]
-            
         # call donutengine to calculate image
 
         # build coarse wavefront
@@ -133,9 +105,9 @@ class wavefit(object):
         paramWave = np.zeros((nCoarse,nCoarse))
         for ipar in range(self.npar):
             j,i = self.coarsegrid[ipar]  #now consistent with assignment in this line: self.coarsegrid.append([j,i])
-            paramWave[j,i] = parArr[ipar] 
+            paramWave[j,i] = par[ipar]
 
-        # resize to full wavefront            
+        # resize to full wavefront
         smoothWave = cv2.resize(paramWave,(self._nbin,self._nbin),interpolation=cv2.INTER_LANCZOS4)
         smoothWave = smoothWave * self.pupilMask
 
@@ -143,15 +115,15 @@ class wavefit(object):
         self.nCallsCalcAll +=1
         self.gFitFunc.setDeltaWFM(smoothWave)
         self.gFitFunc.calcAll(self.parCurrent)
-        
+
         # compare to calculated image
         diff = self.imgarrayc - self.gFitFunc.getvImage()
-        self.pullsq = diff*diff/self.sigmasq   
+        self.pullsq = diff*diff/self.sigmasq
         chisquared = self.pullsq.sum()
 
         # might need to add a counter-term to regularize the slopes of the paramWave grid?
         # or fit Fourier coefficients instead, to limit the the curve in frequency space...
-        
+
         # printout
         if self.paramDict["printLevel"]>=2:
             # only print every 100 times
@@ -159,37 +131,22 @@ class wavefit(object):
                 print('wavefit: Chi2 = ',chisquared," nCalls ",self.nCallsCalcAll)
 
         # save parameters for next iteration
-        self._savePar = parArr
+        self._savePar = par.copy()
         self._chisq = chisquared
 
-        # return result    
-        f[0] = chisquared
+        # return result
+        return chisquared
 
     def doFit(self):
-        
-        # arglist is for the parameters in Minuit commands
-        arglist = array( 'd', 10*[0.] )
-        ierflg = ctypes.c_int(1982) #L ROOT.Long
 
-        # tell Minuit to use strategy for best fits
-        arglist[0] = 1  # 
-        self.gMinuit.mnexcm( "SET STRATEGY", arglist, 1, ierflg )
-                
         # start timer
-        self.startingtime = time.clock()
-
-        # Now ready for minimization step
-        #self.gMinuit.SetMaxIterations(self.paramDict["maxIterations"])
-        #self.gMinuit.Migrad()
+        self.startingtime = time.time()
 
         # Migrad
-        arglist[0] = self.paramDict["maxIterations"]
-        arglist[1] = self.paramDict["tolerance"]    # tolerance, default is 0.1
-        self.gMinuit.mnexcm( "MIGRAD", arglist, 2, ierflg )
-        
+        self.gMinuit.migrad(ncall=self.paramDict["maxIterations"])
 
         # done, check elapsed time
-        firsttime = time.clock()
+        firsttime = time.time()
         self.deltatime = firsttime - self.startingtime
         if self.paramDict["printLevel"]>=1:
             print('wavefit: Elapsed time fit = ',self.deltatime)
@@ -200,27 +157,25 @@ class wavefit(object):
 
     def outFit(self,postfix="wave",identifier=""):
 
-        # get more fit details from MINUIT
-        amin, edm, errdef = ctypes.c_double(0.18), ctypes.c_double(0.19), ctypes.c_double(0.20)
-        nvpar, nparx, icstat = ctypes.c_int(1983), ctypes.c_int(1984), ctypes.c_int(1985)
-        self.gMinuit.mnstat( amin, edm, errdef, nvpar, nparx, icstat )
-        dof = pow(self._nPixels,2) - nvpar.value
+        # get fit details from iminuit
+        amin = self.gMinuit.fmin.fval
+        edm = self.gMinuit.fmin.edm
+        errdef = self.gMinuit.fmin.errordef
+        nvpar = self.gMinuit.nfit
+        nparx = self.gMinuit.npar
+        icstat = int(self.gMinuit.fmin.is_valid) + 2*int(self.gMinuit.fmin.has_accurate_covar)
+        dof = pow(self.gFitFunc._nPixels,2) - nvpar
+
         if self.paramDict["printLevel"]>=1:
-            mytxt = "amin = %.3f, edm = %.3f,   effdef = %.3f,   nvpar = %.3f,  nparx = %.3f, icstat = %.3f " % (amin.value,edm.value,errdef.value,nvpar.value,nparx.value,icstat.value)   
-            print('wavefit: ',mytxt)
+            mytxt = "amin = %.3f, edm = %.3f,   effdef = %.3f,   nvpar = %d,  nparx = %d, icstat = %d " % (amin,edm,errdef,nvpar,nparx,icstat)
+            print('donutfit: ',mytxt)
 
         # get fit values and errors
-        aVal = ctypes.c_double(0.21)
-        errVal = ctypes.c_double(0.22)
-        self.paramArray = np.zeros(self.npar)
-        self.paramErrArray = np.zeros(self.npar)
-        for ipar in range(self.npar):
-            self.gMinuit.GetParameter(ipar,aVal,errVal)
-            self.paramArray[ipar] = aVal.value
-            if errVal.value < 1e9 :
-                self.paramErrArray[ipar] = errVal.value
-            else:
-                self.paramErrArray[ipar] = 0.0
+        self.paramArray = self.gMinuit.values
+        self.paramErrArray = self.gMinuit.errors
+
+        # print results
+        print(tab.tabulate(*self.gMinuit.params.to_table()))
 
         # build coarse wavefront
         nCoarse = int(self._nbin/self._spacing)
@@ -230,17 +185,16 @@ class wavefit(object):
             j,i = self.coarsegrid[ipar]  # make this j,i; must be consistent!
             self.paramWave[j,i] = self.paramArray[ipar]
             self.paramWaveErr[j,i] = self.paramErrArray[ipar]
-                        
-                
+
+
         # fill output Dictionary
         outputDict = {}
-        outputDict["CHI2"] = float(amin.value)
-        outputDict["DOF"] = int(dof)
-        outputDict["FITSTAT"] = int(icstat.value)
-        outputDict["CLKTIME"] = self.deltatime
+        outputDict["CHI2"] = amin
         outputDict["DOF"] = dof
+        outputDict["FITSTAT"] = icstat
+        outputDict["CLKTIME"] = self.deltatime
         outputDict["NCALLS"] = self.nCallsCalcAll
-        
+
         for ipar in range(self.npar):
             outputDict[self.parNames[ipar]] = float(self.paramArray[ipar])
         for ipar in range(self.npar):
@@ -249,9 +203,9 @@ class wavefit(object):
         # make a single output file, with multiple extensions
         # Extension 1:  Calculated Image
         # Extension 2:  Original Image
-        # Extension 3:  Difference 
-        # Extension 4:  Chi2        
-        # Extension 5:  Wavefront  
+        # Extension 3:  Difference
+        # Extension 4:  Chi2
+        # Extension 5:  Wavefront
 
         hduListOutput = pyfits.HDUList()
         primaryOutput = pyfits.PrimaryHDU()
@@ -261,7 +215,7 @@ class wavefit(object):
         for key in outputDict:
             primaryHeader[key] = outputDict[key]
         hduListOutput.append(primaryOutput)
-        
+
         # calculated Donut
         calcHdu = pyfits.ImageHDU(self.gFitFunc.getvImage(),name="Model_Image")
         hduListOutput.append(calcHdu)
@@ -269,7 +223,7 @@ class wavefit(object):
         # original image
         imageHdu = pyfits.ImageHDU(self.imgarrayc,name="Original_Image")
         hduListOutput.append(imageHdu)
-            
+
         # diff Donut - Calc
         diffHdu = pyfits.ImageHDU(self.imgarrayc-self.gFitFunc.getvImage(),name="Image-Model")
         hduListOutput.append(diffHdu)
@@ -299,7 +253,7 @@ class wavefit(object):
         # Wavefront map - Delta coarse errors
         wavedeltaerrcoarseHdu = pyfits.ImageHDU(self.paramWaveErr,name="Sigma_CoarseGrid_Wavefront")
         hduListOutput.append(wavedeltaerrcoarseHdu)
-        
+
         # file names for output are
         # outputPrefix + identifier
         if identifier!="" :
@@ -307,16 +261,12 @@ class wavefit(object):
         else:
             outName = self.paramDict["outputPrefix"] + "." + postfix
         outFile = outName + ".donut.fits"
-                
+
         if self.paramDict["printLevel"]>=1:
             hduListOutput.info()
         hduListOutput.writeto(outFile,overwrite=True)
-        
+
         # return some results
         resultDict = {}
         resultDict.update(outputDict)
         return resultDict
-
-
-
-

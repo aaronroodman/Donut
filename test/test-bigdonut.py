@@ -1,45 +1,56 @@
 ###
-### Script for fitting a BIG donut
+### Script for fitting a BIG donut with pupil grid fit also
 ###
 
 import numpy as np
-import scipy as sp
-import pickle
-
+import os
 from donutlib.donutfit import donutfit
 from donutlib.wavefit import wavefit
+from donutlib.wavefrontmap import wavefrontmap
 
+def fitbigdonut(dopupilgrid=True):
 
-fitinitDict = {"nZernikeTerms":37,"fixedParamArray1":[0,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"fixedParamArray2":[0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"fixedParamArray3":[0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"nFits":3,"nPixels":256,"nbin":2048,"scaleFactor":1.0,"pixelOverSample":8,"iTelescope":0,"inputrzero":0.15,"outputWavefront":True,"debugFlag":False,"gain":4.5,"wavefrontMapFile" : "/Users/roodman/Astrophysics/Donuts/decam_2012-nominalzernike.pickle"}
+    wmap = os.path.expanduser("~/Astrophysics/Donuts/decam_2012-nominalzernike.pickle")
+    wmapobj = wavefrontmap(wmap)
 
-df = donutfit(**fitinitDict)
+    fitinitDict = {"nZernikeTerms":37,
+        "fixedParamArray1":[0,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        "fixedParamArray2":[0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        "fixedParamArray3":[0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        "nFits":3,"nPixels":256,"nbin":2048,"scaleFactor":1.0,"pixelOverSample":8,"iTelescope":0,"inputrzero":0.15,
+        "outputWavefront":True,"debugFlag":False,"gain":4.5,"wavefrontMap":wmapobj}
 
-# fit first donut
-fitDict  = {}
-fitDict["inputFile"] = 'DECam_00236392.S4.0003.stamp.fits'
-fitDict["outputPrefix"] = '/u/ec/roodman/kipacdisk/Donuts/bigdonuts/DECam_runwave_00236392.S4.0003'
-fitDict["inputrzero"] = 0.125
-fitDict["inputZernikeDict"] = {"S4":[0.0,0.0,53.0],"None":[0.0,0.0,11.0]}
-df.setupFit(**fitDict)
+    df = donutfit(**fitinitDict)
 
-df.gFitFunc.closeFits()
+    # fit first donut
+    fitDict  = {}
+    fitDict["inputFile"] = 'input/DECam_00236392.S4.0003.stamp.fits'
+    fitDict["outputPrefix"] = 'output/DECam_00236392.S4.0003'
+    fitDict["inputrzero"] = 0.125
+    fitDict["inputZernikeDict"] = {"S4":[0.0,0.0,53.0],"None":[0.0,0.0,11.0]}
+    df.setupFit(**fitDict)
 
-if True:
-    # now fit an extra component of the wavefront, described by a mesh of points
-    inputDict = {"outputPrefix":fitDict["outputPrefix"],"maxIterations":10000,"tolerance":1000.0,"defineGrid":False,"spacing":64}
+    df.gFitFunc.closeFits()
 
-    wfit = wavefit(df,**inputDict)
+    if dopupilgrid:
+         # now fit an extra component of the wavefront, described by a mesh of points
+        inputDict = {"outputPrefix":'output/DECam_pupilgrid_00236392.S4.0003',"maxIterations":10000,"tolerance":1000.0,
+                     "defineGrid":False,"spacing":64}
 
-    # setup initial values
-    values = np.zeros(wfit.npar)
-    for ipar in range(wfit.npar):
-        ix,iy = wfit.coarsegrid[ipar]  # in case we want starting values to vary with x,y
-        values[ipar] = 0.0
-    wfit.setupCoarseGrid(values)
+        wfit = wavefit(df,**inputDict)
 
-    # do the fit
-    wfit.doFit()
+        # setup initial values
+        values = np.zeros(wfit.npar)
+        for ipar in range(wfit.npar):
+            iy,ix = wfit.coarsegrid[ipar]  # in case we want starting values to vary with x,y
+            values[ipar] = 0.0
+        wfit.setupCoarseGrid(values)
 
-    # get the results
-    wfit.outFit()
+        # do the fit
+        wfit.doFit()
 
+        # get the results
+        wfit.outFit()
+
+if __name__ == '__main__':
+    fitbigdonut(False)   # set False to just do Zernike fit, pupil grid fit is slow...
