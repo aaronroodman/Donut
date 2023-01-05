@@ -4,7 +4,7 @@
 *.pyc
 
 # no testing files
-*.fits
+# *.fits
 
 # no swig output
 *.cxx
