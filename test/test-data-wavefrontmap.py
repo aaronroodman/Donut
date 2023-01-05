@@ -25,7 +25,7 @@ def fitdonut():
                'input/DECam_00345461.S4.0018.stamp.fits','input/DECam_00345461.S25.0018.stamp.fits']
 
     outfiles = ['output/DECam_wmap_00284696.S4.0008','output/DECam_wmap_00284696.S25.0001',
-                'output/DECam_wamp_00345461.S4.0018','output/DECam_wmap_00345461.S25.0018']
+                'output/DECam_wmap_00345461.S4.0018','output/DECam_wmap_00345461.S25.0018']
 
     # fit dictionary
     fitDict  = {}
