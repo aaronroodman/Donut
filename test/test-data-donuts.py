@@ -10,10 +10,11 @@ from tabulate import tabulate
 from donutlib.donutfit import donutfit
 from donutlib.wavefrontmap import wavefrontmap
 
-
-infiles = ['input/DECam_00284696.S4.0008.stamp.fits','input/DECam_00284696.S25.0001.stamp.fits',
-           'input/DECam_00345461.S4.0018.stamp.fits','input/DECam_00345461.S25.0018.stamp.fits',
-            'input/DECam_00153648.S4.0010.stamp.fits','input/DECam_00153648.S25.0019.stamp.fits']
+infiles = ['input/DECam_00284696.S4.0008.stamp.fits','input/DECam_00284696.S4.0093.stamp.fits','input/DECam_00284696.S25.0001.stamp.fits',
+           'input/DECam_00487890.S4.0054.stamp.fits','input/DECam_00487890.S4.0175.stamp.fits','input/DECam_00487890.S25.0083.stamp.fits',
+           'input/DECam_00804541.S4.0096.stamp.fits','input/DECam_00804541.S4.0118.stamp.fits','input/DECam_00804541.S25.0126.stamp.fits']
+#           'input/DECam_00345461.S4.0018.stamp.fits','input/DECam_00345461.S25.0018.stamp.fits',
+#            'input/DECam_00153648.S4.0010.stamp.fits','input/DECam_00153648.S25.0019.stamp.fits']
 
 filenames = ['out'+afile[2:11]+'%s'+afile[11:-11]+'.second.donut.fits' for afile in infiles]
 

@@ -73,7 +73,7 @@ class donutfit(object):
         self.wavefrontMap = self.paramDict['wavefrontMap']
 
         # if we have a deltaWFM, read it and install it
-        if self.paramDict['deltaWFM']:
+        if self.paramDict['deltaWFM'] and self.paramDict['deltaWFM']!='None':
             wfm_hdu = pyfits.open(self.paramDict['deltaWFM'])
             wfm = np.array(wfm_hdu[0].data,dtype=np.float64)  #need to convert when reading from fits!
             self.gFitFunc.setDeltaWFM(wfm)

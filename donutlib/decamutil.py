@@ -2,6 +2,7 @@
 # Utility methods for DECam
 #
 import numpy as np
+#import pdb
 from collections import OrderedDict
 
 class decaminfo(object):
@@ -115,7 +116,10 @@ class decaminfo(object):
         stateDict = {}
         keysToPickle = ['infoDict','mmperpixel','rClear','infoArrbyNum']
         for key in keysToPickle:
-            stateDict[key] = self.__dict__[key]
+            try:
+                stateDict[key] = self.__dict__[key]
+            except:
+                stateDict[key] = None
         return stateDict
 
     def __setstate__(self,state):

@@ -1,6 +1,10 @@
 import time
 import numpy as np
-import cv2
+try:
+    import cv2
+except:
+    print('Could not import cv2')
+
 from collections import OrderedDict
 from astropy.io import fits as pyfits
 import tabulate as tab
